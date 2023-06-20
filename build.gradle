@@ -1,0 +1,122 @@
+buildscript {
+    repositories {
+        mavenCentral()
+    }
+}
+
+plugins {
+    id 'java'
+    id 'java-library'
+    id 'idea'
+    id 'signing'
+    id 'maven-publish'
+    id 'jacoco'
+//    id 'com.github.johnrengelman.shadow' version "7.1.2"
+    id 'com.diffplug.spotless' version '6.17.0'
+}
+
+wrapper {
+    gradleVersion = '7.2'
+    distributionType = Wrapper.DistributionType.BIN
+}
+project.archivesBaseName = 'state'
+project.ext {
+    versions = [
+            wiremock  : '3.0.0-beta-8',
+            caffeine  : '3.1.6',
+            handlebars: '4.3.1',
+            junit     : '5.9.3',
+            assertj   : '3.24.2',
+            restAssured: '5.3.1'
+    ]
+}
+
+
+group 'com.github.dirkbolte.wiremock.extensions'
+version '0.0.1'
+
+publishing {
+    publications {
+        mavenJava(MavenPublication) {
+            artifactId = 'state'
+            from components.java
+            pom {
+                name = 'state'
+                description = 'A WireMock extension to transfer state in between stubs'
+                url = 'https://github.com/dirkbolte/wiremock-extension-state'
+
+
+                scm {
+                    connection = 'https://github.com/dirkbolte/wiremock-extension-state.git'
+                    developerConnection = 'https://github.com/dirkbolte/wiremock-extension-state.git'
+                    url = 'https://github.com/dirkbolte/wiremock-extension-state.git'
+                }
+
+                licenses {
+                    license {
+                        name = 'The Apache Software License, Version 2.0'
+                        url = 'http://www.apache.org/licenses/LICENSE-2.0.txt'
+                        distribution = 'repo'
+                    }
+                }
+
+                developers {
+                    developer {
+                        id = 'dirkbolte'
+                        name = 'Dirk Bolte'
+                        email = 'dirk.bolte@gmx.de'
+                    }
+                }
+            }
+        }
+    }
+}
+
+repositories {
+    mavenCentral()
+    mavenLocal()
+}
+
+dependencies {
+    implementation("com.github.tomakehurst:wiremock:${versions.wiremock}")
+    implementation("com.github.ben-manes.caffeine:caffeine:${versions.caffeine}")
+    implementation("com.github.jknack:handlebars-helpers:${versions.handlebars}") {
+        exclude group: 'org.mozilla', module: 'rhino'
+    }
+
+    testImplementation(platform("org.junit:junit-bom:${versions.junit}"))
+    testImplementation('org.junit.jupiter:junit-jupiter')
+    testImplementation("org.assertj:assertj-core:${versions.assertj}")
+    testImplementation(platform("io.rest-assured:rest-assured-bom:${versions.restAssured}"))
+    testImplementation("io.rest-assured:rest-assured")
+}
+
+
+sourceCompatibility = 11
+targetCompatibility = 11
+
+compileJava {
+    options.encoding = 'UTF-8'
+}
+
+compileTestJava {
+    options.encoding = 'UTF-8'
+}
+
+test {
+    useJUnitPlatform()
+    testLogging {
+        events "passed", "skipped", "failed"
+    }
+}
+
+idea {
+    project {
+        jdkName = '11'
+        languageLevel = '11'
+    }
+}
+
+
+//shadowJar.mustRunAfter jar
+
