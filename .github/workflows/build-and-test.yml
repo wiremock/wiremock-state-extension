@@ -1,0 +1,40 @@
+name: Build and test
+
+on:
+  push:
+#    branches: [ develop, master ]
+    branches:
+      - '**'
+#  pull_request:
+#    branches: [ develop, master ]
+
+jobs:
+  validate:
+    name: Validate Gradle wrapper
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Validate Gradle wrapper
+        uses: gradle/wrapper-validation-action@v1
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ ubuntu-latest, macos-latest, windows-latest ]
+        jdk: [ 11, 17 ]
+    runs-on: ${{ matrix.os }}
+    env:
+      JDK_VERSION: ${{ matrix.jdk }}
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+      - name: Set up JDK
+        uses: actions/setup-java@v3
+        with:
+          java-version: ${{ matrix.jdk }}
+          distribution: 'temurin'
+      - name: Run the Gradle package task
+        uses: gradle/gradle-build-action@v2
+        with:
+          arguments: build check
