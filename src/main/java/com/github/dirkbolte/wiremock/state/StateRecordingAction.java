@@ -27,6 +27,7 @@ import com.github.tomakehurst.wiremock.extension.responsetemplating.TemplateEngi
 import com.github.tomakehurst.wiremock.stubbing.ServeEvent;
 import org.apache.commons.lang3.StringUtils;
 
+import javax.swing.text.html.Option;
 import java.time.Duration;
 import java.util.Collections;
 import java.util.Map;
@@ -63,7 +64,7 @@ public class StateRecordingAction extends PostServeAction {
             "response", ResponseTemplateModel.from(serveEvent.getResponse())
         );
         var context = createContext(model, parameters);
-        storeState(context, model, parameters);
+        storeContextAndState(context, model, parameters);
     }
 
     @Override
@@ -71,15 +72,20 @@ public class StateRecordingAction extends PostServeAction {
         return "recordState";
     }
 
-    public Object getState(String context, String property) {
+    Object getState(String context, String property) {
         return cache.getIfPresent(calculateKey(context, property));
     }
 
-    private void storeState(String context, Map<String, Object> model, Parameters parameters) {
+    boolean hasContext(String context) {
+        return cache.getIfPresent(context) != null;
+    }
+
+    private void storeContextAndState(String context, Map<String, Object> model, Parameters parameters) {
         @SuppressWarnings("unchecked") Map<String, Object> state = Optional.ofNullable(parameters.get("state"))
             .filter(it -> it instanceof Map)
             .map(Map.class::cast)
             .orElseThrow(() -> new ConfigurationException("no state specified"));
+        cache.put(context, context);
         state.entrySet()
             .stream()
             .map(entry -> Map.entry(entry.getKey(), renderTemplate(model, entry.getValue().toString())))
@@ -95,7 +101,7 @@ public class StateRecordingAction extends PostServeAction {
         return context;
     }
 
-    private String renderTemplate(Object context, String value) {
+    String renderTemplate(Object context, String value) {
         return templateEngine.getUncachedTemplate(value).apply(context);
     }
 
