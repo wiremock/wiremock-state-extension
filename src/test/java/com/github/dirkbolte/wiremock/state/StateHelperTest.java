@@ -44,11 +44,12 @@ import static com.github.tomakehurst.wiremock.client.WireMock.urlPathMatching;
 import static com.github.tomakehurst.wiremock.core.WireMockConfiguration.wireMockConfig;
 import static io.restassured.RestAssured.given;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.equalTo;
 import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 @Execution(SAME_THREAD)
-class StateTest {
+class StateHelperTest {
 
     private static final String TEST_URL = "/test";
     private static final StateRecordingAction stateRecordingAction = new StateRecordingAction();
@@ -94,7 +95,7 @@ class StateTest {
             .post(new URI(runtimeInfo.getHttpBaseUrl() + TEST_URL))
             .then()
             .statusCode(HttpStatus.SC_OK)
-            .body("testKey", Matchers.equalTo("testValue"));
+            .body("testKey", equalTo("testValue"));
     }
 
     @Test
@@ -197,12 +198,10 @@ class StateTest {
             .get(new URI(String.format("%s%s/%s", wm.getRuntimeInfo().getHttpBaseUrl(), TEST_URL, context)))
             .then()
             .statusCode(HttpStatus.SC_OK)
-            .body("value", Matchers.notNullValue())
+            .body("value", equalTo(contextValue))
             .extract()
             .body()
             .jsonPath().get("value");
-
-        assertThat(responseValue).describedAs("context value is returned").isEqualTo(contextValue);
     }
 
     private String postAndAssertContextValue(String contextValue) throws URISyntaxException {

@@ -55,7 +55,8 @@ the `GET` won't have any knowledge of the previous post.
 Two extensions have to be registered:
 
 - `StateRecordingAction` to record any state in `postServeActions`
-- `ResponseTemplateTransformer` with `StateHelper` to retrieve a previously recorded state
+- `StateRequestMatcher` to match incoming request against a context using custom master `state-matcher`
+- `ResponseTemplateTransformer` with `StateHelper` to retrieve a previously recorded state for a context
 
 ```java
 public class MySandbox {
@@ -68,6 +69,7 @@ public class MySandbox {
                 .dynamicPort()
                 .extensions(
                     stateRecordingAction,
+                    new StateRequestMatcher(stateRecordingAction),
                     new ResponseTemplateTransformer(true, "state", new StateHelper(stateRecordingAction))
                 )
         );
@@ -156,7 +158,52 @@ The default expiration is 60 minutes. The default value can be overwritten (`0` 
 
 ```java
 int expiration=1024;
-    var stateRecordingAction=new StateRecordingAction(expiration);
+var stateRecordingAction=new StateRecordingAction(expiration);
+```
+
+## Match a request against a context
+
+To have a WireMock stub only apply when there's actually a matching context, you can use the `StateRequestMatcher` . This helps to model different
+behavior for requests with and without a matching context. The parameter supports templates.
+
+### Positive match
+
+```json
+{
+  "request": {
+    "method": "GET",
+    "urlPattern": "/test/[^\/]+",
+    "customMatcher": {
+      "name": "state-matcher",
+      "parameters": {
+        "hasContext": "{{request.pathSegments.[1]}}"
+      }
+    }
+  },
+  "response": {
+    "status": 200
+  }
+}
+```
+
+### Negative match
+
+```json
+{
+  "request": {
+    "method": "GET",
+    "urlPattern": "/test/[^\/]+",
+    "customMatcher": {
+      "name": "state-matcher",
+      "parameters": {
+        "hasNotContext": "{{request.pathSegments.[1]}}"
+      }
+    }
+  },
+  "response": {
+    "status": 400
+  }
+}
 ```
 
 ## Retrieve a state
