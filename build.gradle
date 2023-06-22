@@ -21,7 +21,7 @@ wrapper {
 project.archivesBaseName = 'state'
 project.ext {
     versions = [
-            wiremock  : '3.0.0-beta-8',
+            wiremock  : '3.0.0-beta-10',
             caffeine  : '3.1.6',
             handlebars: '4.3.1',
             junit     : '5.9.3',
