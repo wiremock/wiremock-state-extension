@@ -1,21 +1,26 @@
-package com.github.dirkbolte.wiremock.state;
+package org.wiremock.extensions.state;
 
+import org.wiremock.extensions.state.internal.ContextManager;
 import com.github.tomakehurst.wiremock.core.ConfigurationException;
 import com.github.tomakehurst.wiremock.extension.Parameters;
 import com.github.tomakehurst.wiremock.extension.responsetemplating.RequestTemplateModel;
+import com.github.tomakehurst.wiremock.extension.responsetemplating.TemplateEngine;
 import com.github.tomakehurst.wiremock.http.Request;
 import com.github.tomakehurst.wiremock.matching.MatchResult;
 import com.github.tomakehurst.wiremock.matching.RequestMatcherExtension;
+import com.github.tomakehurst.wiremock.store.Store;
 
+import java.util.Collections;
 import java.util.Map;
 import java.util.Optional;
 
 public class StateRequestMatcher extends RequestMatcherExtension {
 
-    private final StateRecordingAction recordingAction;
+    private final TemplateEngine templateEngine = new TemplateEngine(Collections.emptyMap(), null, Collections.emptySet(), false);
+    private final ContextManager contextManager;
 
-    public StateRequestMatcher(StateRecordingAction recordingAction) {
-        this.recordingAction = recordingAction;
+    public StateRequestMatcher(Store<String, Object> store) {
+        this.contextManager = new ContextManager(store);
     }
 
     @Override
@@ -34,12 +39,11 @@ public class StateRequestMatcher extends RequestMatcherExtension {
             .map(template -> hasContext(model, template))
             .or(() -> Optional.ofNullable(parameters.getString("hasNotContext", null)).map(template -> hasNotContext(model, template)))
             .orElseThrow(() -> new ConfigurationException("Parameters should only contain 'hasContext' or 'hasNotContext'"));
-
     }
 
     private MatchResult hasContext(Map<String, RequestTemplateModel> model, String template) {
-        var context = recordingAction.renderTemplate(model, template);
-        if (recordingAction.hasContext(context)) {
+        var context = renderTemplate(model, template);
+        if (contextManager.hasContext(context)) {
             return MatchResult.exactMatch();
         } else {
             return MatchResult.noMatch();
@@ -47,11 +51,15 @@ public class StateRequestMatcher extends RequestMatcherExtension {
     }
 
     private MatchResult hasNotContext(Map<String, RequestTemplateModel> model, String template) {
-        var context = recordingAction.renderTemplate(model, template);
-        if (!recordingAction.hasContext(context)) {
+        var context = renderTemplate(model, template);
+        if (!contextManager.hasContext(context)) {
             return MatchResult.exactMatch();
         } else {
             return MatchResult.noMatch();
         }
+    }
+
+    String renderTemplate(Object context, String value) {
+        return templateEngine.getUncachedTemplate(value).apply(context);
     }
 }

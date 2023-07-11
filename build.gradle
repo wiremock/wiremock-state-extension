@@ -21,18 +21,19 @@ wrapper {
 project.archivesBaseName = 'state'
 project.ext {
     versions = [
-            wiremock  : '3.0.0-beta-10',
+            wiremock  : '3.0.0-beta-11',
             caffeine  : '3.1.6',
             handlebars: '4.3.1',
             junit     : '5.9.3',
             assertj   : '3.24.2',
-            restAssured: '5.3.1'
+            restAssured: '5.3.1',
+            awaitility: '4.2.0'
     ]
 }
 
 
 group 'com.github.dirkbolte.wiremock.extensions'
-version '0.0.1'
+version '0.0.2-3.0.0-beta-11'
 
 
 publishing {
@@ -80,7 +81,7 @@ repositories {
 }
 
 dependencies {
-    implementation("com.github.tomakehurst:wiremock:${versions.wiremock}")
+    implementation("org.wiremock:wiremock:${versions.wiremock}")
     implementation("com.github.ben-manes.caffeine:caffeine:${versions.caffeine}")
     implementation("com.github.jknack:handlebars-helpers:${versions.handlebars}") {
         exclude group: 'org.mozilla', module: 'rhino'
@@ -91,6 +92,7 @@ dependencies {
     testImplementation("org.assertj:assertj-core:${versions.assertj}")
     testImplementation(platform("io.rest-assured:rest-assured-bom:${versions.restAssured}"))
     testImplementation("io.rest-assured:rest-assured")
+    testImplementation("org.awaitility:awaitility:${versions.awaitility}")
 }
 
 
