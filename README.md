@@ -50,15 +50,9 @@ the `GET` won't have any knowledge of the previous post.
 
 # Usage
 
-## Register extensions
+## Register extension
 
-The following extensions are available:
-
-- `RecordStateEventListener` to record state in `withServeEventListener`
-- `DeleteStateEventListener` to delewte state in `withServeEventListener`
-- `StateRequestMatcher` to match incoming request against a context using custom master `state-matcher`
-- `StateTemplateHelperProviderExtension` to register helpers for templating
-
+This extension makes use of Wiremock's `ExtensionFactory`, so only one extension has to be registered: `StateExtension`.
 In order to use them, templating has to be enabled as well:
 
 ```java
@@ -73,12 +67,7 @@ public class MySandbox {
                 .dynamicPort()
                 .templatingEnabled(true)
                 .globalTemplating(true)
-                .extensions(
-                    new RecordStateEventListener(store),
-                    new DeleteStateEventListener(store),
-                    new StateRequestMatcher(store),
-                    new StateTemplateHelperProviderExtension(store)
-                )
+                .extensions(new StateExtension(store))
         );
         server.start();
     }
@@ -292,15 +281,17 @@ Example response with error:
 ## Java
 
 ```java
-class StateTest {
+class StateExtensionExampleTest {
+
+    private static final String TEST_URL = "/test";
+    private static final Store<String, Object> store = new CaffeineStore();
+    private static final ObjectMapper mapper = new ObjectMapper();
+
     @RegisterExtension
     public static WireMockExtension wm = WireMockExtension.newInstance()
         .options(
             wireMockConfig().dynamicPort().dynamicHttpsPort()
-                .extensions(
-                    stateRecordingAction,
-                    new ResponseTemplateTransformer(true, "state", new StateHelper(stateRecordingAction))
-                )
+                .extensions(new StateExtension(store))
         )
         .build();
 
@@ -341,14 +332,16 @@ class StateTest {
                         .withJsonBody(
                             mapper.readTree(
                                 mapper.writeValueAsString(Map.of(
-                                        "id", "{{state context=request.pathSegments.[1] property='id'}}"),
-                                    "firstName", "{{state context=request.pathSegments.[1] property='firstName'}}"),
-                                "lastName", "{{state context=request.pathSegments.[1] property='lastName'}}")
+                                        "id", "{{state context=request.pathSegments.[1] property='id'}}",
+                                        "firstName", "{{state context=request.pathSegments.[1] property='firstName'}}",
+                                        "lastName", "{{state context=request.pathSegments.[1] property='lastName'}}"
+                                    )
+                                )
+                            )
                         )
                 )
         );
     }
-
 }
 ```
 

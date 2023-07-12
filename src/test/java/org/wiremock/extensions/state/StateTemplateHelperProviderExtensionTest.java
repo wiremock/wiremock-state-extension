@@ -31,6 +31,9 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.api.parallel.Execution;
+import org.wiremock.extensions.state.extensions.DeleteStateEventListener;
+import org.wiremock.extensions.state.extensions.RecordStateEventListener;
+import org.wiremock.extensions.state.extensions.StateTemplateHelperProviderExtension;
 
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -57,11 +60,7 @@ class StateTemplateHelperProviderExtensionTest {
     public static WireMockExtension wm = WireMockExtension.newInstance()
         .options(
             wireMockConfig().dynamicPort().dynamicHttpsPort().templatingEnabled(true).globalTemplating(true)
-                .extensions(
-                    new RecordStateEventListener(store),
-                    new DeleteStateEventListener(store),
-                    new StateTemplateHelperProviderExtension(store)
-                )
+                .extensions(new StateExtension(store))
         )
         .build();
 

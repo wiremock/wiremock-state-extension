@@ -13,22 +13,28 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.wiremock.extensions.state.internal;
+package org.wiremock.extensions.state.extensions;
 
-import org.wiremock.extensions.state.internal.ContextManager;
 import com.github.jknack.handlebars.Options;
 import com.github.tomakehurst.wiremock.extension.responsetemplating.helpers.HandlebarsHelper;
-import com.github.tomakehurst.wiremock.store.Store;
 import org.apache.commons.lang3.StringUtils;
+import org.wiremock.extensions.state.internal.ContextManager;
 
 import java.util.Optional;
 
+/**
+ * Response templating helper to access state.
+ *
+ * DO NOT REGISTER directly. Use {@link org.wiremock.extensions.state.StateExtension} instead.
+ *
+ * @see org.wiremock.extensions.state.StateExtension
+ */
 public class StateHandlerbarHelper extends HandlebarsHelper<Object> {
 
     private final ContextManager contextManager;
 
-    public StateHandlerbarHelper(Store<String, Object> store) {
-        this.contextManager = new ContextManager(store);
+    public StateHandlerbarHelper(ContextManager contextManager) {
+        this.contextManager = contextManager;
     }
 
     @Override

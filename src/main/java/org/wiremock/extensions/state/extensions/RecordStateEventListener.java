@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.wiremock.extensions.state;
+package org.wiremock.extensions.state.extensions;
 
 import org.wiremock.extensions.state.internal.ContextManager;
 import com.github.tomakehurst.wiremock.core.ConfigurationException;
@@ -31,14 +31,21 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
+/**
+ * Event listener to trigger state context recording.
+ *
+ * DO NOT REGISTER directly. Use {@link org.wiremock.extensions.state.StateExtension} instead.
+ *
+ * @see org.wiremock.extensions.state.StateExtension
+ */
 public class RecordStateEventListener implements ServeEventListener {
 
-    private final TemplateEngine templateEngine = new TemplateEngine(Collections.emptyMap(), null, Collections.emptySet(), false);
+    private final TemplateEngine templateEngine;
     private final ContextManager contextManager;
 
-
-    public RecordStateEventListener(Store<String, Object> store) {
-        this.contextManager = new ContextManager(store);
+    public RecordStateEventListener(ContextManager contextManager, TemplateEngine templateEngine) {
+        this.contextManager = contextManager;
+        this.templateEngine = templateEngine;
     }
 
     public void afterComplete(ServeEvent serveEvent, Parameters parameters) {
