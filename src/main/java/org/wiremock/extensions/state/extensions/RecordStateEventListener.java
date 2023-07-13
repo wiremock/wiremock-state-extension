@@ -13,58 +13,48 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.github.dirkbolte.wiremock.state;
+package org.wiremock.extensions.state.extensions;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.github.benmanes.caffeine.cache.Cache;
-import com.github.benmanes.caffeine.cache.Caffeine;
-import com.github.tomakehurst.wiremock.core.Admin;
+import org.wiremock.extensions.state.internal.ContextManager;
 import com.github.tomakehurst.wiremock.core.ConfigurationException;
 import com.github.tomakehurst.wiremock.extension.Parameters;
-import com.github.tomakehurst.wiremock.extension.PostServeAction;
+import com.github.tomakehurst.wiremock.extension.ServeEventListener;
 import com.github.tomakehurst.wiremock.extension.responsetemplating.RequestTemplateModel;
 import com.github.tomakehurst.wiremock.extension.responsetemplating.TemplateEngine;
+import com.github.tomakehurst.wiremock.store.Store;
 import com.github.tomakehurst.wiremock.stubbing.ServeEvent;
 import org.apache.commons.lang3.StringUtils;
+import org.wiremock.extensions.state.internal.ResponseTemplateModel;
 
-import javax.swing.text.html.Option;
-import java.time.Duration;
 import java.util.Collections;
 import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
-public class StateRecordingAction extends PostServeAction {
+/**
+ * Event listener to trigger state context recording.
+ *
+ * DO NOT REGISTER directly. Use {@link org.wiremock.extensions.state.StateExtension} instead.
+ *
+ * @see org.wiremock.extensions.state.StateExtension
+ */
+public class RecordStateEventListener implements ServeEventListener {
 
-    private static final int DEFAULT_EXPIRATION_SECONDS = 60 * 60;
     private final TemplateEngine templateEngine;
+    private final ContextManager contextManager;
 
-    private final Cache<String, Object> cache;
-
-    public StateRecordingAction() {
-        this(0);
+    public RecordStateEventListener(ContextManager contextManager, TemplateEngine templateEngine) {
+        this.contextManager = contextManager;
+        this.templateEngine = templateEngine;
     }
 
-    @JsonCreator
-    public StateRecordingAction(int expirationSeconds) {
-        this.templateEngine = new TemplateEngine(Collections.emptyMap(), null, Collections.emptySet());
-
-        var builder = Caffeine.newBuilder();
-        if (expirationSeconds == 0) {
-            builder.expireAfterWrite(Duration.ofSeconds(DEFAULT_EXPIRATION_SECONDS));
-        } else {
-            builder.expireAfterWrite(Duration.ofSeconds(expirationSeconds));
-        }
-        cache = builder.build();
-    }
-
-    @Override
-    public void doAction(ServeEvent serveEvent, Admin admin, Parameters parameters) {
+    public void afterComplete(ServeEvent serveEvent, Parameters parameters) {
         var model = Map.of(
             "request", RequestTemplateModel.from(serveEvent.getRequest()),
             "response", ResponseTemplateModel.from(serveEvent.getResponse())
         );
-        var context = createContext(model, parameters);
-        storeContextAndState(context, model, parameters);
+        var contextName = createContextName(model, parameters);
+        storeContextAndState(contextName, model, parameters);
     }
 
     @Override
@@ -72,12 +62,9 @@ public class StateRecordingAction extends PostServeAction {
         return "recordState";
     }
 
-    Object getState(String context, String property) {
-        return cache.getIfPresent(calculateKey(context, property));
-    }
-
-    boolean hasContext(String context) {
-        return cache.getIfPresent(context) != null;
+    @Override
+    public boolean applyGlobally() {
+        return false;
     }
 
     private void storeContextAndState(String context, Map<String, Object> model, Parameters parameters) {
@@ -85,14 +72,15 @@ public class StateRecordingAction extends PostServeAction {
             .filter(it -> it instanceof Map)
             .map(Map.class::cast)
             .orElseThrow(() -> new ConfigurationException("no state specified"));
-        cache.put(context, context);
-        state.entrySet()
+        var properties = state.entrySet()
             .stream()
             .map(entry -> Map.entry(entry.getKey(), renderTemplate(model, entry.getValue().toString())))
-            .forEach(entry -> storeState(context, entry.getKey(), entry.getValue()));
+            .collect(Collectors.toUnmodifiableMap(Map.Entry::getKey, Map.Entry::getValue));
+
+        contextManager.createOrUpdateContext(context, properties);
     }
 
-    private String createContext(Map<String, Object> model, Parameters parameters) {
+    private String createContextName(Map<String, Object> model, Parameters parameters) {
         var rawContext = Optional.ofNullable(parameters.getString("context")).filter(StringUtils::isNotBlank).orElseThrow(() -> new ConfigurationException("no context specified"));
         String context = renderTemplate(model, rawContext);
         if (StringUtils.isBlank(context)) {
@@ -101,15 +89,7 @@ public class StateRecordingAction extends PostServeAction {
         return context;
     }
 
-    String renderTemplate(Object context, String value) {
+    private String renderTemplate(Object context, String value) {
         return templateEngine.getUncachedTemplate(value).apply(context);
-    }
-
-    private void storeState(String context, String property, Object value) {
-        cache.put(calculateKey(context, property), value);
-    }
-
-    private String calculateKey(String context, String property) {
-        return String.format("%s,%s", context, property);
     }
 }

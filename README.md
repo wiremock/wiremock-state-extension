@@ -50,13 +50,10 @@ the `GET` won't have any knowledge of the previous post.
 
 # Usage
 
-## Register extensions
+## Register extension
 
-Two extensions have to be registered:
-
-- `StateRecordingAction` to record any state in `postServeActions`
-- `StateRequestMatcher` to match incoming request against a context using custom master `state-matcher`
-- `ResponseTemplateTransformer` with `StateHelper` to retrieve a previously recorded state for a context
+This extension makes use of Wiremock's `ExtensionFactory`, so only one extension has to be registered: `StateExtension`.
+In order to use them, templating has to be enabled as well:
 
 ```java
 public class MySandbox {
@@ -64,23 +61,22 @@ public class MySandbox {
 
     public MySandbox() {
         var stateRecordingAction = new StateRecordingAction();
+        var store = new CaffeineStore();
         server = new WireMockServer(
             options()
                 .dynamicPort()
-                .extensions(
-                    stateRecordingAction,
-                    new StateRequestMatcher(stateRecordingAction),
-                    new ResponseTemplateTransformer(true, "state", new StateHelper(stateRecordingAction))
-                )
+                .templatingEnabled(true)
+                .globalTemplating(true)
+                .extensions(new StateExtension(store))
         );
         server.start();
     }
 }
 ```
 
-## Store a state
+## Record a state
 
-The state is stored in `postServeActions` of a stub. The following parameters have to be provided:
+The state is recorded in `withServeEventListener` of a stub. The following parameters have to be provided:
 
 <table>
 <tr>
@@ -134,7 +130,7 @@ Full example:
 {
   "request": {},
   "response": {},
-  "postServeActions": [
+  "withServeEventListener": [
     {
       "name": "recordState",
       "parameters": {
@@ -151,14 +147,63 @@ Full example:
 
 ```
 
+## Deleting a state
+
+Similar to recording a state, its deletion can be initiated in  `withServeEventListener` of a stub. The following parameters have to be provided:
+
+<table>
+<tr>
+<th>Parameter</th>
+<th>Type</th>
+<th>Example</th>
+</tr>
+<tr>
+<td>
+
+`context`
+
+</td>
+<td>String</td>
+<td>
+
+- `"context": "{{jsonPath response.body '$.id'}}"`
+- `"context": "{{request.pathSegments.[3]}}"`
+
+</td>
+</tr>
+</table>
+
+Templating (as in [Response Templating](https://wiremock.org/docs/response-templating/)) is supported for these. The following models are exposed:
+
+- `request`: All model elements of as in [Response Templating](https://wiremock.org/docs/response-templating/)
+- `response`: `body` and `headers`
+
+Full example:
+
+```json
+{
+  "request": {},
+  "response": {},
+  "withServeEventListener": [
+    {
+      "name": "deleteState",
+      "parameters": {
+        "context": "{{jsonPath response.body '$.id'}}"
+      }
+    }
+  ]
+}
+
+```
+
 ### state expiration
 
-This extension uses [caffeine](https://github.com/ben-manes/caffeine) to store the current state and to achieve an expiration (to avoid memory leaks).
+This extension provides a `CaffeineStore` which uses [caffeine](https://github.com/ben-manes/caffeine) to store the current state and to achieve an expiration (to avoid memory leaks).
 The default expiration is 60 minutes. The default value can be overwritten (`0` = default = 60 minutes):
 
 ```java
 int expiration=1024;
-var stateRecordingAction=new StateRecordingAction(expiration);
+var store = new CaffeineStore(expiration);
 ```
 
 ## Match a request against a context
@@ -236,15 +281,17 @@ Example response with error:
 ## Java
 
 ```java
-class StateTest {
+class StateExtensionExampleTest {
+
+    private static final String TEST_URL = "/test";
+    private static final Store<String, Object> store = new CaffeineStore();
+    private static final ObjectMapper mapper = new ObjectMapper();
+
     @RegisterExtension
     public static WireMockExtension wm = WireMockExtension.newInstance()
         .options(
             wireMockConfig().dynamicPort().dynamicHttpsPort()
-                .extensions(
-                    stateRecordingAction,
-                    new ResponseTemplateTransformer(true, "state", new StateHelper(stateRecordingAction))
-                )
+                .extensions(new StateExtension(store))
         )
         .build();
 
@@ -260,7 +307,7 @@ class StateTest {
                                 mapper.writeValueAsString(Map.of("id", "{{randomValue length=32 type='ALPHANUMERIC' uppercase=false}}")))
                         )
                 )
-                .withPostServeAction(
+                .withServeEventListener(
                     "recordState",
                     Parameters.from(
                         Map.of(
@@ -285,14 +332,16 @@ class StateTest {
                         .withJsonBody(
                             mapper.readTree(
                                 mapper.writeValueAsString(Map.of(
-                                        "id", "{{state context=request.pathSegments.[1] property='id'}}"),
-                                    "firstName", "{{state context=request.pathSegments.[1] property='firstName'}}"),
-                                "lastName", "{{state context=request.pathSegments.[1] property='lastName'}}")
+                                        "id", "{{state context=request.pathSegments.[1] property='id'}}",
+                                        "firstName", "{{state context=request.pathSegments.[1] property='firstName'}}",
+                                        "lastName", "{{state context=request.pathSegments.[1] property='lastName'}}"
+                                    )
+                                )
+                            )
                         )
                 )
         );
     }
-
 }
 ```
 
@@ -325,7 +374,7 @@ class StateTest {
       "lastName": "{{jsonPath request.body '$.lastName'}}"
     }
   },
-  "postServeActions": [
+  "withServeEventListener": [
     {
       "name": "recordState",
       "parameters": {

@@ -13,14 +13,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.github.dirkbolte.wiremock.state;
+package org.wiremock.extensions.state;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.tomakehurst.wiremock.client.WireMock;
 import com.github.tomakehurst.wiremock.extension.Parameters;
-import com.github.tomakehurst.wiremock.extension.responsetemplating.ResponseTemplateTransformer;
 import com.github.tomakehurst.wiremock.junit5.WireMockExtension;
+import com.github.tomakehurst.wiremock.store.Store;
 import io.restassured.RestAssured;
 import io.restassured.http.ContentType;
 import org.apache.commons.lang3.RandomStringUtils;
@@ -32,6 +32,9 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.api.parallel.Execution;
+import org.wiremock.extensions.state.extensions.RecordStateEventListener;
+import org.wiremock.extensions.state.extensions.StateRequestMatcher;
+import org.wiremock.extensions.state.extensions.StateTemplateHelperProviderExtension;
 
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -49,19 +52,17 @@ import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 @Execution(SAME_THREAD)
-class StateHelperTest {
+class StateRequestMatcherTest {
 
     private static final String TEST_URL = "/test";
-    private static final StateRecordingAction stateRecordingAction = new StateRecordingAction();
+    private static final Store<String, Object> store = new CaffeineStore();
     private static final ObjectMapper mapper = new ObjectMapper();
+
     @RegisterExtension
     public static WireMockExtension wm = WireMockExtension.newInstance()
         .options(
-            wireMockConfig().dynamicPort().dynamicHttpsPort()
-                .extensions(
-                    stateRecordingAction,
-                    new ResponseTemplateTransformer(true, "state", new StateHelper(stateRecordingAction))
-                )
+            wireMockConfig().dynamicPort().dynamicHttpsPort().templatingEnabled(true).globalTemplating(true)
+                .extensions(new StateExtension(store))
         )
         .build();
 
@@ -71,97 +72,73 @@ class StateHelperTest {
     }
 
     @BeforeEach
-    void setup() {
+    void setup() throws JsonProcessingException {
         wm.resetAll();
-    }
-
-    @Test
-    void test_noExtensionUsage_ok() throws JsonProcessingException, URISyntaxException {
-        var runtimeInfo = wm.getRuntimeInfo();
-        wm.stubFor(
-            post(urlEqualTo(TEST_URL))
-                .willReturn(
-                    WireMock.ok()
-                        .withHeader("content-type", "application/json")
-                        .withJsonBody(
-                            mapper.readTree(
-                                mapper.writeValueAsString(Map.of("testKey", "testValue")))
-                        )
-                )
-        );
-
-        given()
-            .accept(ContentType.JSON)
-            .post(new URI(runtimeInfo.getHttpBaseUrl() + TEST_URL))
-            .then()
-            .statusCode(HttpStatus.SC_OK)
-            .body("testKey", equalTo("testValue"));
-    }
-
-    @Test
-    void test_unknownContext_fail() throws JsonProcessingException, URISyntaxException {
         createPostStub();
         createGetStub();
+    }
 
+    @Test
+    void test_unknownContext_notFound() throws URISyntaxException {
         String context = RandomStringUtils.randomAlphabetic(5);
-        getAndAssertContextValue(context, String.format("[ERROR: No state for context %s, property stateValue found]", context));
+        getAndAssertContextMatcher(context, HttpStatus.SC_NOT_FOUND, "context not found");
     }
 
+
     @Test
-    void test_unknownProperty_fail() throws JsonProcessingException, URISyntaxException {
+    void test_findsContext_ok() throws URISyntaxException {
         var contextValue = RandomStringUtils.randomAlphabetic(5);
 
-        createPostStub();
-        wm.stubFor(
-            get(urlPathMatching(TEST_URL + "/[^/]+"))
-                .willReturn(
-                    WireMock.ok()
-                        .withHeader("content-type", "application/json")
-                        .withJsonBody(
-                            mapper.readTree(
-                                mapper.writeValueAsString(Map.of("value", "{{state context=request.pathSegments.[1] property='unknownValue'}}")))
-                        )
-                )
-        );
-
         var context = postAndAssertContextValue(contextValue);
-        getAndAssertContextValue(context, String.format("[ERROR: No state for context %s, property unknownValue found]", context));
+        getAndAssertContextMatcher(context, HttpStatus.SC_OK, "context found");
     }
 
+
     @Test
-    void test_returnsStateFromPreviousRequest_ok() throws JsonProcessingException, URISyntaxException {
+    void test_unknownContextWithOtherContextAvailable_notFound() throws URISyntaxException {
         var contextValue = RandomStringUtils.randomAlphabetic(5);
 
-        createPostStub();
-        createGetStub();
-
         var context = postAndAssertContextValue(contextValue);
-        getAndAssertContextValue(context, contextValue);
+        getAndAssertContextMatcher(context, HttpStatus.SC_OK, "context found");
+        getAndAssertContextMatcher(RandomStringUtils.randomAlphabetic(5), HttpStatus.SC_NOT_FOUND, "context not found");
     }
 
     @Test
-    void test_differentStatesSupported_ok() throws JsonProcessingException, URISyntaxException {
+    void test_multipleContexts_ok() throws URISyntaxException {
         var contextValueOne = RandomStringUtils.randomAlphabetic(5);
         var contextValueTwo = RandomStringUtils.randomAlphabetic(5);
 
-        createPostStub();
-        createGetStub();
-
         var contextOne = postAndAssertContextValue(contextValueOne);
         var contextTwo = postAndAssertContextValue(contextValueTwo);
-        getAndAssertContextValue(contextOne, contextValueOne);
-        getAndAssertContextValue(contextTwo, contextValueTwo);
+
+        getAndAssertContextMatcher(contextOne, HttpStatus.SC_OK, "context found");
+        getAndAssertContextMatcher(contextTwo, HttpStatus.SC_OK, "context found");
     }
 
     private void createGetStub() throws JsonProcessingException {
         wm.stubFor(
             get(urlPathMatching(TEST_URL + "/[^/]+"))
+                .andMatching("state-matcher", Parameters.one("hasContext", "{{request.pathSegments.[1]}}"))
                 .willReturn(
                     WireMock.ok()
                         .withHeader("content-type", "application/json")
                         .withJsonBody(
                             mapper.readTree(
-                                mapper.writeValueAsString(Map.of("value", "{{state context=request.pathSegments.[1] property='stateValue'}}")))
+                                mapper.writeValueAsString(Map.of(
+                                    "status", "context found"
+                                )))
+                        )
+                )
+        );
+        wm.stubFor(
+            get(urlPathMatching(TEST_URL + "/[^/]+"))
+                .andMatching("state-matcher", Parameters.one("hasNotContext", "{{request.pathSegments.[1]}}"))
+                .willReturn(
+                    WireMock.notFound()
+                        .withHeader("content-type", "application/json")
+                        .withJsonBody(
+                            mapper.readTree(
+                                mapper.writeValueAsString(Map.of("status", "context not found")))
                         )
                 )
         );
@@ -178,7 +155,7 @@ class StateHelperTest {
                                 mapper.writeValueAsString(Map.of("id", "{{randomValue length=32 type='ALPHANUMERIC' uppercase=false}}")))
                         )
                 )
-                .withPostServeAction(
+                .withServeEventListener(
                     "recordState",
                     Parameters.from(
                         Map.of(
@@ -192,16 +169,13 @@ class StateHelperTest {
         );
     }
 
-    private void getAndAssertContextValue(String context, String contextValue) throws URISyntaxException {
-        var responseValue = given()
+    private void getAndAssertContextMatcher(String context, int httpStatus, String statusValue) throws URISyntaxException {
+        given()
             .accept(ContentType.JSON)
             .get(new URI(String.format("%s%s/%s", wm.getRuntimeInfo().getHttpBaseUrl(), TEST_URL, context)))
             .then()
-            .statusCode(HttpStatus.SC_OK)
-            .body("value", equalTo(contextValue))
-            .extract()
-            .body()
-            .jsonPath().get("value");
+            .statusCode(httpStatus)
+            .body("status", equalTo(statusValue));
     }
 
     private String postAndAssertContextValue(String contextValue) throws URISyntaxException {

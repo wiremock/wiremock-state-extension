@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.github.dirkbolte.wiremock.state;
+package org.wiremock.extensions.state.internal;
 
 import com.github.tomakehurst.wiremock.common.ListOrSingle;
 import com.github.tomakehurst.wiremock.http.LoggedResponse;
@@ -21,7 +21,7 @@ import com.github.tomakehurst.wiremock.http.LoggedResponse;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-final class ResponseTemplateModel {
+public final class ResponseTemplateModel {
     private final Map<String, ListOrSingle<String>> headers;
     private final String body;
 

@@ -13,20 +13,28 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.github.dirkbolte.wiremock.state;
+package org.wiremock.extensions.state.extensions;
 
 import com.github.jknack.handlebars.Options;
 import com.github.tomakehurst.wiremock.extension.responsetemplating.helpers.HandlebarsHelper;
 import org.apache.commons.lang3.StringUtils;
+import org.wiremock.extensions.state.internal.ContextManager;
 
 import java.util.Optional;
 
-public class StateHelper extends HandlebarsHelper<Object> {
+/**
+ * Response templating helper to access state.
+ *
+ * DO NOT REGISTER directly. Use {@link org.wiremock.extensions.state.StateExtension} instead.
+ *
+ * @see org.wiremock.extensions.state.StateExtension
+ */
+public class StateHandlerbarHelper extends HandlebarsHelper<Object> {
 
-    private final StateRecordingAction recordingAction;
+    private final ContextManager contextManager;
 
-    public StateHelper(StateRecordingAction recordingAction) {
-        this.recordingAction = recordingAction;
+    public StateHandlerbarHelper(ContextManager contextManager) {
+        this.contextManager = contextManager;
     }
 
     @Override
@@ -40,7 +48,9 @@ public class StateHelper extends HandlebarsHelper<Object> {
             return handleError("The property cannot be empty");
         }
 
-        return Optional.ofNullable(recordingAction.getState(context, property))
+        return Optional.ofNullable(contextManager.getState(context, property))
             .orElse(handleError(String.format("No state for context %s, property %s found", context, property)));
     }
+
+
 }
