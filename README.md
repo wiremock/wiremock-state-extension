@@ -50,6 +50,54 @@ the `GET` won't have any knowledge of the previous post.
 
 # Usage
 
+## Compatibility matrix
+
+| `wiremock-extension-state` version | `WireMock` version |
+|------------------------------------|--------------------|
+| `0.0.3`                            | `3.0.0-beta-11`+   |
+
+## Installation
+
+### Gradle
+
+```groovy
+repositories {
+    maven {
+        url = uri("https://maven.pkg.github.com/wiremock/wiremock-extension-state")
+    }
+}
+
+
+dependencies {
+    testImplementation("org.wiremock:wiremock-state-extension:<your-version>")
+}
+```
+
+### Maven
+
+Follow the instructions on [GitHub Docs](https://docs.github.com/en/packages/working-with-a-github-packages-registry/working-with-the-apache-maven-registry) to
+add authentication to GitHub packages.  
+
+```xml
+
+<repositories>
+    <repository>
+        <id>github-wiremock-extension-state</id>
+        <name>WireMock Extension State Apache Maven Packages</name>
+        <url>https://maven.pkg.github.com/wiremock/wiremock-extension-state</url>
+    </repository>
+</repositories>
+
+<dependencies>
+    <dependency>
+        <groupId>org.wiremock</groupId>
+        <artifactId>wiremock-state-extension</artifactId>
+        <version>your-version</version>
+        <scope>test</scope>
+    </dependency>
+</dependencies>
+```
+
 ## Register extension
 
 This extension makes use of Wiremock's `ExtensionFactory`, so only one extension has to be registered: `StateExtension`.
@@ -198,12 +246,13 @@ Full example:
 
 ### state expiration
 
-This extension provides a `CaffeineStore` which uses [caffeine](https://github.com/ben-manes/caffeine) to store the current state and to achieve an expiration (to avoid memory leaks).
+This extension provides a `CaffeineStore` which uses [caffeine](https://github.com/ben-manes/caffeine) to store the current state and to achieve an expiration (
+to avoid memory leaks).
 The default expiration is 60 minutes. The default value can be overwritten (`0` = default = 60 minutes):
 
 ```java
 int expiration=1024;
-var store = new CaffeineStore(expiration);
+    var store=new CaffeineStore(expiration);
 ```
 
 ## Match a request against a context

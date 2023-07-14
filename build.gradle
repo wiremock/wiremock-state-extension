@@ -12,13 +12,14 @@ plugins {
     id 'maven-publish'
     id 'jacoco'
     id 'com.diffplug.spotless' version '6.19.0'
+    id 'com.palantir.git-version' version '3.0.0'
 }
 
 wrapper {
     gradleVersion = '7.2'
     distributionType = Wrapper.DistributionType.BIN
 }
-project.archivesBaseName = 'state'
+project.archivesBaseName = 'wiremock-state-extension'
 project.ext {
     versions = [
             wiremock  : '3.0.0-beta-11',
@@ -32,19 +33,29 @@ project.ext {
 }
 
 
-group 'com.github.dirkbolte.wiremock.extensions'
-version '0.0.2-3.0.0-beta-11'
+group 'org.wiremock'
 
+version gitVersion()
 
 publishing {
+    repositories {
+        maven {
+            name = "GitHubPackages"
+            url = "https://maven.pkg.github.com/wiremock/wiremock-extension-state"
+            credentials {
+                username = System.getenv("GITHUB_ACTOR")
+                password = System.getenv("GITHUB_TOKEN")
+            }
+        }
+    }
     publications {
         mavenJava(MavenPublication) {
-            artifactId = 'state'
+            artifactId = 'wiremock-state-extension'
 
             from components.java
 
             pom {
-                name = 'state'
+                name = 'wiremock-state-extension'
                 description = 'A WireMock extension to transfer state in between stubs'
                 url = 'https://github.com/dirkbolte/wiremock-extension-state'
 
