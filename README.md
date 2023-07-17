@@ -159,7 +159,7 @@ The state is recorded in `withServeEventListener` of a stub. The following param
   {
   "id": "{{jsonPath response.body '$.id'}}",
   "firstName": "{{jsonPath request.body '$.firstName'}}",
-  "lastName": "{{jsonPath request.body '$.lastName'}}"
+  "lastName": "{{jsonPath request.body '$.lastName'}}",
 }
   ```
 
@@ -187,6 +187,26 @@ Full example:
           "id": "{{jsonPath response.body '$.id'}}",
           "firstName": "{{jsonPath request.body '$.firstName'}}",
           "lastName": "{{jsonPath request.body '$.lastName'}}"
+        }
+      }
+    }
+  ]
+}
+```
+
+To record a complete response body, use:
+
+```json
+{
+  "request": {},
+  "response": {},
+  "withServeEventListener": [
+    {
+      "name": "recordState",
+      "parameters": {
+        "context": "{{jsonPath response.body '$.id'}}",
+        "state": {
+          "fullBody": "{{jsonPath response.body '$'}}"
         }
       }
     }
@@ -309,6 +329,8 @@ The handler has two parameters:
 
 - `context`:  has to match the context data was registered with
 - `property`: the property of the state context to retrieve, so e.g. `firstName`
+
+To retrieve a full body, use: `{{{state context=request.pathSegments.[1] property='fullBody'}}}` .
 
 ### Error handling
 
