@@ -13,14 +13,16 @@ plugins {
     id 'jacoco'
     id 'com.diffplug.spotless' version '6.20.0'
     id 'com.palantir.git-version' version '3.0.0'
+    id 'com.github.johnrengelman.shadow' version '8.1.1'
 }
 
 wrapper {
-    gradleVersion = '7.2'
+    gradleVersion = '8.2.1'
     distributionType = Wrapper.DistributionType.BIN
 }
-project.archivesBaseName = 'wiremock-state-extension'
+
 project.ext {
+    baseArtifact = 'wiremock-state-extension'
     versions = [
             wiremock  : '3.0.0-beta-12',
             caffeine  : '3.1.6',
@@ -32,6 +34,42 @@ project.ext {
     ]
 }
 
+project.archivesBaseName = "${baseArtifact}"
+configurations {
+    standaloneOnly
+}
+
+jar {
+    archiveBaseName.set("${baseArtifact}")
+    exclude 'META-INF/services'
+}
+
+shadowJar {
+    archiveBaseName.set("${baseArtifact}-standalone")
+    archiveClassifier.set('')
+    configurations = [
+            project.configurations.runtimeClasspath,
+            project.configurations.standaloneOnly
+    ]
+
+    with copySpec {
+        from("shadowjar/resources") {}
+    }
+
+    relocate "com.github.ben-manes.caffeine", 'wiremock.org.extensions.state.caffeine'
+    relocate "com.github.jknack", 'wiremock.org.extensions.state.jknack'
+
+
+    dependencies {
+        exclude(dependency('junit:junit'))
+    }
+
+    mergeServiceFiles()
+
+    exclude 'META-INF/maven/**'
+    exclude 'module-info.class'
+    exclude 'handlebars-*.js'
+}
 
 group 'org.wiremock'
 
@@ -48,15 +86,57 @@ publishing {
             }
         }
     }
+
+    getComponents().withType(AdhocComponentWithVariants).each { c ->
+        c.withVariantsFromConfiguration(project.configurations.shadowRuntimeElements) {
+            skip()
+        }
+    }
+
     publications {
         mavenJava(MavenPublication) {
-            artifactId = 'wiremock-state-extension'
+            artifactId = "${baseArtifact}"
 
             from components.java
 
             pom {
-                name = 'wiremock-state-extension'
+                name = "${baseArtifact}"
                 description = 'A WireMock extension to transfer state in between stubs'
+                url = 'https://github.com/dirkbolte/wiremock-extension-state'
+
+
+                scm {
+                    connection = 'https://github.com/dirkbolte/wiremock-extension-state.git'
+                    developerConnection = 'https://github.com/dirkbolte/wiremock-extension-state.git'
+                    url = 'https://github.com/dirkbolte/wiremock-extension-state.git'
+                }
+
+                licenses {
+                    license {
+                        name = 'The Apache Software License, Version 2.0'
+                        url = 'http://www.apache.org/licenses/LICENSE-2.0.txt'
+                        distribution = 'repo'
+                    }
+                }
+
+                developers {
+                    developer {
+                        id = 'dirkbolte'
+                        name = 'Dirk Bolte'
+                        email = 'dirk.bolte@gmx.de'
+                    }
+                }
+            }
+        }
+        standaloneJar(MavenPublication) { publication ->
+            artifactId = "${baseArtifact}-standalone"
+
+            project.shadow.component(publication)
+
+            pom {
+
+                name = "${baseArtifact}-standalone"
+                description = 'A WireMock extension to transfer state in between stubs - to be used with WireMock standalone'
                 url = 'https://github.com/dirkbolte/wiremock-extension-state'
 
 
@@ -117,6 +197,7 @@ compileJava {
 compileTestJava {
     options.encoding = 'UTF-8'
 }
+assemble.dependsOn jar, shadowJar
 
 test {
     useJUnitPlatform()

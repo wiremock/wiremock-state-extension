@@ -54,7 +54,7 @@ the `GET` won't have any knowledge of the previous post.
 
 | `wiremock-extension-state` version | `WireMock` version |
 |------------------------------------|--------------------|
-| `0.0.3`                            | `3.0.0-beta-11`+   |
+| `0.0.3`+                           | `3.0.0-beta-11`+   |
 
 ## Installation
 
@@ -100,8 +100,11 @@ add authentication to GitHub packages.
 
 ## Register extension
 
+### Java
+
 This extension makes use of Wiremock's `ExtensionFactory`, so only one extension has to be registered: `StateExtension`.
-In order to use them, templating has to be enabled as well:
+In order to use them, templating has to be enabled as well. A store for all state data has to be provided. This extension
+provides a `CaffeineStore` which can be used - or you can provide your own store:
 
 ```java
 public class MySandbox {
@@ -120,6 +123,17 @@ public class MySandbox {
         server.start();
     }
 }
+```
+
+### Standalone
+
+This extension uses the `ServiceLoader` extension to be loaded by WireMock. As Standalone version, it will use `CaffeineStore` for
+storing any data.
+
+The standalone jar can be downloaded from [GitHub](https://github.com/wiremock/wiremock-extension-state/packages/1902576) .
+
+```bash
+java -cp "wiremock-state-extension-standalone-0.0.4.jar:wiremock-standalone-3.0.0-beta-11.jar" wiremock.Run
 ```
 
 ## Record a state
@@ -349,8 +363,6 @@ As for other matchers, templating is supported.
   }
 }
 ```
-
-
 
 ## Retrieve a state
 
