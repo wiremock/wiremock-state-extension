@@ -20,11 +20,9 @@ import com.github.tomakehurst.wiremock.extension.responsetemplating.helpers.Hand
 import org.apache.commons.lang3.StringUtils;
 import org.wiremock.extensions.state.internal.ContextManager;
 
-import java.util.Optional;
-
 /**
  * Response templating helper to access state.
- *
+ * <p>
  * DO NOT REGISTER directly. Use {@link org.wiremock.extensions.state.StateExtension} instead.
  *
  * @see org.wiremock.extensions.state.StateExtension
@@ -39,18 +37,22 @@ public class StateHandlerbarHelper extends HandlebarsHelper<Object> {
 
     @Override
     public Object apply(Object o, Options options) {
-        String context = options.hash("context");
+        String contextName = options.hash("context");
         String property = options.hash("property");
-        if (StringUtils.isEmpty(context)) {
-            return handleError("The context cannot be empty");
+        if (StringUtils.isEmpty(contextName)) {
+            return handleError("'context' cannot be empty");
         }
         if (StringUtils.isEmpty(property)) {
-            return handleError("The property cannot be empty");
+            return handleError("'property' cannot be empty");
         }
-
-        return Optional.ofNullable(contextManager.getState(context, property))
-            .orElse(handleError(String.format("No state for context %s, property %s found", context, property)));
+        return contextManager.getContext(contextName)
+            .map(context -> {
+                    if ("updateCount".equals(property)) {
+                        return context.getUpdateCount();
+                    } else {
+                        return context.getProperties().get(property);
+                    }
+                }
+            ).orElse(handleError(String.format("No state for context %s, property %s found", contextName, property)));
     }
-
-
 }

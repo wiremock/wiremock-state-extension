@@ -15,25 +15,23 @@
  */
 package org.wiremock.extensions.state.extensions;
 
-import org.wiremock.extensions.state.internal.ContextManager;
 import com.github.tomakehurst.wiremock.core.ConfigurationException;
 import com.github.tomakehurst.wiremock.extension.Parameters;
 import com.github.tomakehurst.wiremock.extension.ServeEventListener;
 import com.github.tomakehurst.wiremock.extension.responsetemplating.RequestTemplateModel;
 import com.github.tomakehurst.wiremock.extension.responsetemplating.TemplateEngine;
-import com.github.tomakehurst.wiremock.store.Store;
 import com.github.tomakehurst.wiremock.stubbing.ServeEvent;
 import org.apache.commons.lang3.StringUtils;
+import org.wiremock.extensions.state.internal.ContextManager;
 import org.wiremock.extensions.state.internal.ResponseTemplateModel;
 
-import java.util.Collections;
 import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
 /**
  * Event listener to trigger state context recording.
- *
+ * <p>
  * DO NOT REGISTER directly. Use {@link org.wiremock.extensions.state.StateExtension} instead.
  *
  * @see org.wiremock.extensions.state.StateExtension

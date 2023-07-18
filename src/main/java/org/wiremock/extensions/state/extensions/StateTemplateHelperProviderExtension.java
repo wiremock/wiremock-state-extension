@@ -24,7 +24,7 @@ import java.util.Map;
 
 /**
  * Response template helper provider for state.
- *
+ * <p>
  * DO NOT REGISTER directly. Use {@link org.wiremock.extensions.state.StateExtension} instead.
  *
  * @see org.wiremock.extensions.state.StateExtension

@@ -80,7 +80,7 @@ class DeleteStateEventListenerTest {
         await()
             .pollDelay(Duration.ofSeconds(1))
             .pollInterval(Duration.ofMillis(10))
-            .atMost(Duration.ofSeconds(5)).untilAsserted(() -> assertThat(contextManager.hasContext(context)).isFalse());
+            .atMost(Duration.ofSeconds(5)).untilAsserted(() -> assertThat(contextManager.getContext(context)).isEmpty());
     }
 
     @Test
@@ -94,11 +94,11 @@ class DeleteStateEventListenerTest {
         await()
             .pollDelay(Duration.ofSeconds(1))
             .pollInterval(Duration.ofMillis(10))
-            .atMost(Duration.ofSeconds(5)).untilAsserted(() -> assertThat(contextManager.hasContext(context)).isFalse());
+            .atMost(Duration.ofSeconds(5)).untilAsserted(() -> assertThat(contextManager.getContext(context)).isEmpty());
         await()
             .pollDelay(Duration.ofSeconds(1))
             .pollInterval(Duration.ofMillis(10))
-            .atMost(Duration.ofSeconds(5)).untilAsserted(() -> assertThat(contextManager.hasContext(otherContext)).isTrue());
+            .atMost(Duration.ofSeconds(5)).untilAsserted(() -> assertThat(contextManager.getContext(otherContext)).isPresent());
     }
 
     @Test
@@ -108,12 +108,12 @@ class DeleteStateEventListenerTest {
         postRequest(context);
         await()
             .pollInterval(Duration.ofMillis(10))
-            .atMost(Duration.ofSeconds(5)).untilAsserted(() -> assertThat(contextManager.hasContext(context)).isTrue());
+            .atMost(Duration.ofSeconds(5)).untilAsserted(() -> assertThat(contextManager.getContext(context)).isPresent());
 
         getRequest(context);
         await()
             .pollInterval(Duration.ofMillis(10))
-            .atMost(Duration.ofSeconds(5)).untilAsserted(() -> assertThat(contextManager.hasContext(context)).isFalse());
+            .atMost(Duration.ofSeconds(5)).untilAsserted(() -> assertThat(contextManager.getContext(context)).isEmpty());
     }
 
     @Test
@@ -126,18 +126,18 @@ class DeleteStateEventListenerTest {
 
         await()
             .pollInterval(Duration.ofMillis(10))
-            .atMost(Duration.ofSeconds(5)).untilAsserted(() -> assertThat(contextManager.hasContext(context)).isTrue());
+            .atMost(Duration.ofSeconds(5)).untilAsserted(() -> assertThat(contextManager.getContext(context)).isPresent());
         await()
             .pollInterval(Duration.ofMillis(10))
-            .atMost(Duration.ofSeconds(5)).untilAsserted(() -> assertThat(contextManager.hasContext(otherContext)).isTrue());
+            .atMost(Duration.ofSeconds(5)).untilAsserted(() -> assertThat(contextManager.getContext(otherContext)).isPresent());
 
         getRequest(context);
         await()
             .pollInterval(Duration.ofMillis(10))
-            .atMost(Duration.ofSeconds(5)).untilAsserted(() -> assertThat(contextManager.hasContext(context)).isFalse());
+            .atMost(Duration.ofSeconds(5)).untilAsserted(() -> assertThat(contextManager.getContext(context)).isEmpty());
         await()
             .pollInterval(Duration.ofMillis(10))
-            .atMost(Duration.ofSeconds(5)).untilAsserted(() -> assertThat(contextManager.hasContext(otherContext)).isTrue());
+            .atMost(Duration.ofSeconds(5)).untilAsserted(() -> assertThat(contextManager.getContext(otherContext)).isPresent());
     }
 
 

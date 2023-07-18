@@ -18,6 +18,7 @@ package org.wiremock.extensions.state.internal;
 import com.github.tomakehurst.wiremock.store.Store;
 
 import java.util.Map;
+import java.util.Optional;
 
 public class ContextManager {
 
@@ -33,9 +34,9 @@ public class ContextManager {
         }
     }
 
-    public boolean hasContext(String contextName) {
+    public Optional<Context> getContext(String contextName) {
         synchronized (store) {
-            return store.get(contextName).isPresent();
+            return store.get(contextName).map(it -> (Context) it);
         }
     }
 
@@ -45,23 +46,29 @@ public class ContextManager {
         }
     }
 
-    public Integer createOrUpdateContext(String contextName, Map<String, String> properties) {
+    public Long createOrUpdateContext(String contextName, Map<String, String> properties) {
         synchronized (store) {
             var context = store.get(contextName)
                 .map(it -> (Context) it)
                 .map(it -> {
-                    it.incUpdates();
+                    it.incUpdateCount();
                     return it;
                 }).orElseGet(() -> new Context(contextName));
             context.getProperties().putAll(properties);
             store.put(contextName, context);
-            return context.getNumUpdates();
+            return context.getUpdateCount();
         }
     }
 
-    public Integer numUpdates(String contextName) {
+    public Long numUpdates(String contextName) {
         synchronized (store) {
-            return store.get(contextName).map(it -> ((Context) it).getNumUpdates()).orElse(0);
+            return store.get(contextName).map(it -> ((Context) it).getUpdateCount()).orElse(0L);
+        }
+    }
+
+    public Long numReads(String contextName) {
+        synchronized (store) {
+            return store.get(contextName).map(it -> ((Context) it).getMatchCount()).orElse(0L);
         }
     }
 }
