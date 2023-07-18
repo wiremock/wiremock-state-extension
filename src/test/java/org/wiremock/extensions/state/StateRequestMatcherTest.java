@@ -23,18 +23,17 @@ import com.github.tomakehurst.wiremock.junit5.WireMockExtension;
 import com.github.tomakehurst.wiremock.store.Store;
 import io.restassured.RestAssured;
 import io.restassured.http.ContentType;
+import io.restassured.response.ValidatableResponse;
 import org.apache.commons.lang3.RandomStringUtils;
 import org.apache.http.HttpStatus;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.api.parallel.Execution;
-import org.wiremock.extensions.state.extensions.RecordStateEventListener;
-import org.wiremock.extensions.state.extensions.StateRequestMatcher;
-import org.wiremock.extensions.state.extensions.StateTemplateHelperProviderExtension;
 
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -81,7 +80,7 @@ class StateRequestMatcherTest {
     @Test
     void test_unknownContext_notFound() throws URISyntaxException {
         String context = RandomStringUtils.randomAlphabetic(5);
-        getAndAssertContextMatcher(context, HttpStatus.SC_NOT_FOUND, "context not found");
+        getAndAssertContextMatcher(context, "all", HttpStatus.SC_NOT_FOUND, "context not found");
     }
 
 
@@ -90,7 +89,7 @@ class StateRequestMatcherTest {
         var contextValue = RandomStringUtils.randomAlphabetic(5);
 
         var context = postAndAssertContextValue(contextValue);
-        getAndAssertContextMatcher(context, HttpStatus.SC_OK, "context found");
+        getAndAssertContextMatcher(context, "all", HttpStatus.SC_OK, "context found", "1");
     }
 
 
@@ -99,8 +98,8 @@ class StateRequestMatcherTest {
         var contextValue = RandomStringUtils.randomAlphabetic(5);
 
         var context = postAndAssertContextValue(contextValue);
-        getAndAssertContextMatcher(context, HttpStatus.SC_OK, "context found");
-        getAndAssertContextMatcher(RandomStringUtils.randomAlphabetic(5), HttpStatus.SC_NOT_FOUND, "context not found");
+        getAndAssertContextMatcher(context, "all", HttpStatus.SC_OK, "context found", "1");
+        getAndAssertContextMatcher(RandomStringUtils.randomAlphabetic(5), "all", HttpStatus.SC_NOT_FOUND, "context not found");
     }
 
     @Test
@@ -111,28 +110,90 @@ class StateRequestMatcherTest {
         var contextOne = postAndAssertContextValue(contextValueOne);
         var contextTwo = postAndAssertContextValue(contextValueTwo);
 
-        getAndAssertContextMatcher(contextOne, HttpStatus.SC_OK, "context found");
-        getAndAssertContextMatcher(contextTwo, HttpStatus.SC_OK, "context found");
+        getAndAssertContextMatcher(contextOne, "all", HttpStatus.SC_OK, "context found", "1");
+        getAndAssertContextMatcher(contextTwo, "all", HttpStatus.SC_OK, "context found", "1");
     }
 
     private void createGetStub() throws JsonProcessingException {
         wm.stubFor(
-            get(urlPathMatching(TEST_URL + "/[^/]+"))
-                .andMatching("state-matcher", Parameters.one("hasContext", "{{request.pathSegments.[1]}}"))
+            get(urlPathMatching(TEST_URL + "/all/[^/]+"))
+                .andMatching("state-matcher", Parameters.one("hasContext", "{{request.pathSegments.[2]}}"))
                 .willReturn(
                     WireMock.ok()
                         .withHeader("content-type", "application/json")
                         .withJsonBody(
                             mapper.readTree(
                                 mapper.writeValueAsString(Map.of(
-                                    "status", "context found"
+                                    "status", "context found",
+                                    "updateCount", "{{state context=request.pathSegments.[2] property='updateCount'}}"
                                 )))
                         )
                 )
         );
         wm.stubFor(
-            get(urlPathMatching(TEST_URL + "/[^/]+"))
-                .andMatching("state-matcher", Parameters.one("hasNotContext", "{{request.pathSegments.[1]}}"))
+            get(urlPathMatching(TEST_URL + "/updateCountEqualTo/\\d+/[^/]+"))
+                .andMatching("state-matcher", Parameters.from(
+                    Map.of(
+                        "hasContext", "{{request.pathSegments.[3]}}",
+                        "updateCountEqualTo", "{{request.pathSegments.[2]}}"
+                    ))
+                )
+                .willReturn(
+                    WireMock.ok()
+                        .withHeader("content-type", "application/json")
+                        .withJsonBody(
+                            mapper.readTree(
+                                mapper.writeValueAsString(Map.of(
+                                    "status", "context found",
+                                    "updateCount", "{{state context=request.pathSegments.[3] property='updateCount'}}"
+                                )))
+                        )
+                )
+        );
+        wm.stubFor(
+            get(urlPathMatching(TEST_URL + "/updateCountLessThan/\\d+/[^/]+"))
+                .andMatching("state-matcher", Parameters.from(
+                    Map.of(
+                        "hasContext", "{{request.pathSegments.[3]}}",
+                        "updateCountLessThan", "{{request.pathSegments.[2]}}"
+                    ))
+                )
+                .willReturn(
+                    WireMock.ok()
+                        .withHeader("content-type", "application/json")
+                        .withJsonBody(
+                            mapper.readTree(
+                                mapper.writeValueAsString(Map.of(
+                                    "status", "context found",
+                                    "updateCount", "{{state context=request.pathSegments.[3] property='updateCount'}}"
+                                )))
+                        )
+                )
+        );
+        wm.stubFor(
+            get(urlPathMatching(TEST_URL + "/updateCountMoreThan/\\d+/[^/]+"))
+                .andMatching("state-matcher", Parameters.from(
+                    Map.of(
+                        "hasContext", "{{request.pathSegments.[3]}}",
+                        "updateCountMoreThan", "{{request.pathSegments.[2]}}"
+                    ))
+                )
+                .willReturn(
+                    WireMock.ok()
+                        .withHeader("content-type", "application/json")
+                        .withJsonBody(
+                            mapper.readTree(
+                                mapper.writeValueAsString(Map.of(
+                                    "status", "context found",
+                                    "updateCount", "{{state context=request.pathSegments.[3] property='updateCount'}}"
+                                )))
+                        )
+                )
+        );
+
+        wm.stubFor(
+            get(urlPathMatching(TEST_URL + "/all/[^/]+"))
+                .andMatching("state-matcher", Parameters.one("hasNotContext", "{{request.pathSegments.[2]}}"))
                 .willReturn(
                     WireMock.notFound()
                         .withHeader("content-type", "application/json")
@@ -167,15 +228,46 @@ class StateRequestMatcherTest {
                     )
                 )
         );
+
+        wm.stubFor(
+            post(urlPathMatching(TEST_URL + "/[^/]+"))
+                .willReturn(
+                    WireMock.ok()
+                        .withHeader("content-type", "application/json")
+                        .withBody("{{jsonPath request.body '$'}}")
+                )
+                .withServeEventListener(
+                    "recordState",
+                    Parameters.from(
+                        Map.of(
+                            "context", "{{jsonPath response.body '$.id'}}",
+                            "state", Map.of(
+                                "stateValue", "{{jsonPath request.body '$.contextValue'}}"
+                            )
+                        )
+                    )
+                )
+        );
+
     }
 
-    private void getAndAssertContextMatcher(String context, int httpStatus, String statusValue) throws URISyntaxException {
-        given()
-            .accept(ContentType.JSON)
-            .get(new URI(String.format("%s%s/%s", wm.getRuntimeInfo().getHttpBaseUrl(), TEST_URL, context)))
-            .then()
-            .statusCode(httpStatus)
+    private ValidatableResponse getAndAssertContextMatcher(String context, String path, int httpStatus, String statusValue) throws URISyntaxException {
+        return getAndAssertContextMatcher(context, path, httpStatus)
             .body("status", equalTo(statusValue));
+    }
+
+    private ValidatableResponse getAndAssertContextMatcher(String context, String path, int httpStatus) throws URISyntaxException {
+        return given()
+            .accept(ContentType.JSON)
+            .accept(ContentType.TEXT)
+            .get(new URI(String.format("%s%s/%s/%s", wm.getRuntimeInfo().getHttpBaseUrl(), TEST_URL, path, context)))
+            .then()
+            .statusCode(httpStatus);
+    }
+
+    private void getAndAssertContextMatcher(String context, String path, int httpStatus, String statusValue, String updateCount) throws URISyntaxException {
+        getAndAssertContextMatcher(context, path, httpStatus, statusValue)
+            .body("updateCount", equalTo(updateCount));
     }
 
     private String postAndAssertContextValue(String contextValue) throws URISyntaxException {
@@ -195,5 +287,90 @@ class StateRequestMatcherTest {
             .isNotEmpty();
 
         return context;
+    }
+
+    private String postAndAssertContextValue(String contextName, String contextValue) throws URISyntaxException {
+        var context = given()
+            .accept(ContentType.JSON)
+            .body(Map.of("contextValue", contextValue, "id", contextName))
+            .post(new URI(wm.getRuntimeInfo().getHttpBaseUrl() + TEST_URL + "/" + contextName))
+            .then()
+            .statusCode(HttpStatus.SC_OK)
+            .body("id", Matchers.notNullValue())
+            .extract()
+            .body()
+            .jsonPath().getString("id");
+
+        assertThat(context)
+            .isNotNull()
+            .isNotEmpty();
+
+        return context;
+    }
+
+    @Nested
+    public class UpdateCount {
+        @Test
+        void test_updateCountIncreased_ok() throws URISyntaxException {
+            var contextValue = RandomStringUtils.randomAlphabetic(5);
+
+            var context = postAndAssertContextValue(contextValue);
+            getAndAssertContextMatcher(context, "all", HttpStatus.SC_OK, "context found", "1");
+            postAndAssertContextValue(context, contextValue);
+            getAndAssertContextMatcher(context, "all", HttpStatus.SC_OK, "context found", "2");
+        }
+
+        @Test
+        void test_updateCountEqualTo_ok() throws URISyntaxException {
+            var contextValue = RandomStringUtils.randomAlphabetic(5);
+
+            var context = postAndAssertContextValue(contextValue);
+            postAndAssertContextValue(context, contextValue);
+            postAndAssertContextValue(context, contextValue);
+            getAndAssertContextMatcher(context, "updateCountEqualTo/3", HttpStatus.SC_OK, "context found", "3");
+            getAndAssertContextMatcher(context, "updateCountEqualTo/2", HttpStatus.SC_NOT_FOUND);
+        }
+
+        @Test
+        void test_updateCountLessThan_ok() throws URISyntaxException {
+            var contextValue = RandomStringUtils.randomAlphabetic(5);
+
+            var context = postAndAssertContextValue(contextValue);
+            postAndAssertContextValue(context, contextValue);
+            postAndAssertContextValue(context, contextValue);
+            getAndAssertContextMatcher(context, "updateCountLessThan/4", HttpStatus.SC_OK, "context found", "3");
+            getAndAssertContextMatcher(context, "updateCountLessThan/3", HttpStatus.SC_NOT_FOUND);
+        }
+
+        @Test
+        void test_updateCountMoreThan_ok() throws URISyntaxException {
+            var contextValue = RandomStringUtils.randomAlphabetic(5);
+
+            var context = postAndAssertContextValue(contextValue);
+            postAndAssertContextValue(context, contextValue);
+            postAndAssertContextValue(context, contextValue);
+            getAndAssertContextMatcher(context, "updateCountMoreThan/2", HttpStatus.SC_OK, "context found", "3");
+            getAndAssertContextMatcher(context, "updateCountMoreThan/3", HttpStatus.SC_NOT_FOUND);
+        }
+
+        @Test
+        void test_multipleContexts_updateCountIncreasedIndividually_ok() throws URISyntaxException {
+            var contextValueOne = RandomStringUtils.randomAlphabetic(5);
+            var contextValueTwo = RandomStringUtils.randomAlphabetic(5);
+
+            var contextOne = postAndAssertContextValue(contextValueOne);
+            var contextTwo = postAndAssertContextValue(contextValueTwo);
+
+            getAndAssertContextMatcher(contextOne, "all", HttpStatus.SC_OK, "context found", "1");
+            getAndAssertContextMatcher(contextTwo, "all", HttpStatus.SC_OK, "context found", "1");
+
+            postAndAssertContextValue(contextOne, contextValueOne);
+            getAndAssertContextMatcher(contextOne, "all", HttpStatus.SC_OK, "context found", "2");
+            getAndAssertContextMatcher(contextTwo, "all", HttpStatus.SC_OK, "context found", "1");
+
+            postAndAssertContextValue(contextTwo, contextValueTwo);
+            getAndAssertContextMatcher(contextOne, "all", HttpStatus.SC_OK, "context found", "2");
+            getAndAssertContextMatcher(contextTwo, "all", HttpStatus.SC_OK, "context found", "2");
+        }
     }
 }

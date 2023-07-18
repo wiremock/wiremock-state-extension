@@ -280,7 +280,7 @@ int expiration=1024;
 To have a WireMock stub only apply when there's actually a matching context, you can use the `StateRequestMatcher` . This helps to model different
 behavior for requests with and without a matching context. The parameter supports templates.
 
-### Positive match
+### Positive context exists match
 
 ```json
 {
@@ -300,7 +300,37 @@ behavior for requests with and without a matching context. The parameter support
 }
 ```
 
-### Negative match
+### Context update count match
+
+Whenever the serve event listener `recordState` is processed, the internal context update counter is increased. The number can be used
+for request matching as well. The following matchers are available:
+
+- `updateCountEqualTo`
+- `updateCountLessThan`
+- `updateCountMoreThan`
+
+As for other matchers, templating is supported.
+
+```json
+{
+  "request": {
+    "method": "GET",
+    "urlPattern": "/test/[^\/]+",
+    "customMatcher": {
+      "name": "state-matcher",
+      "parameters": {
+        "hasContext": "{{request.pathSegments.[1]}}",
+        "updateCountEqualTo": "1"
+      }
+    }
+  },
+  "response": {
+    "status": 200
+  }
+}
+```
+
+### Negative context exists match
 
 ```json
 {
@@ -320,6 +350,8 @@ behavior for requests with and without a matching context. The parameter support
 }
 ```
 
+
+
 ## Retrieve a state
 
 A state can be retrieved using a handlebar helper. In the example above, the `StateHelper` is registered by the name `state`.
@@ -329,6 +361,8 @@ The handler has two parameters:
 
 - `context`:  has to match the context data was registered with
 - `property`: the property of the state context to retrieve, so e.g. `firstName`
+  - `property='updateCount` retrieves the number of updates to a certain state.
+    The number matches the one described in [Context update count match](#context-update-count-match)
 
 To retrieve a full body, use: `{{{state context=request.pathSegments.[1] property='fullBody'}}}` .
 
