@@ -27,7 +27,7 @@ project.ext {
             wiremock  : '3.0.0-beta-12',
             caffeine  : '3.1.7',
             handlebars: '4.3.1',
-            junit     : '5.9.3',
+            junit     : '5.10.0',
             assertj   : '3.24.2',
             restAssured: '5.3.1',
             awaitility: '4.2.0'
