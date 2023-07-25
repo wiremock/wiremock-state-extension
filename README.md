@@ -138,7 +138,7 @@ java -cp "wiremock-state-extension-standalone-0.0.4.jar:wiremock-standalone-3.0.
 
 ## Record a state
 
-The state is recorded in `withServeEventListener` of a stub. The following parameters have to be provided:
+The state is recorded in `serveEventListeners` of a stub. The following parameters have to be provided:
 
 <table>
 <tr>
@@ -192,7 +192,7 @@ Full example:
 {
   "request": {},
   "response": {},
-  "withServeEventListener": [
+  "serveEventListeners": [
     {
       "name": "recordState",
       "parameters": {
@@ -214,7 +214,7 @@ To record a complete response body, use:
 {
   "request": {},
   "response": {},
-  "withServeEventListener": [
+  "serveEventListeners": [
     {
       "name": "recordState",
       "parameters": {
@@ -231,7 +231,7 @@ To record a complete response body, use:
 
 ## Deleting a state
 
-Similar to recording a state, its deletion can be initiated in  `withServeEventListener` of a stub. The following parameters have to be provided:
+Similar to recording a state, its deletion can be initiated in  `serveEventListeners` of a stub. The following parameters have to be provided:
 
 <table>
 <tr>
@@ -266,7 +266,7 @@ Full example:
 {
   "request": {},
   "response": {},
-  "withServeEventListener": [
+  "serveEventListeners": [
     {
       "name": "deleteState",
       "parameters": {
@@ -491,7 +491,7 @@ class StateExtensionExampleTest {
       "lastName": "{{jsonPath request.body '$.lastName'}}"
     }
   },
-  "withServeEventListener": [
+  "serveEventListeners": [
     {
       "name": "recordState",
       "parameters": {
