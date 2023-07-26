@@ -16,21 +16,15 @@
 package org.wiremock.extensions.state;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.tomakehurst.wiremock.client.WireMock;
+import com.github.tomakehurst.wiremock.common.Json;
 import com.github.tomakehurst.wiremock.extension.Parameters;
-import com.github.tomakehurst.wiremock.junit5.WireMockExtension;
-import io.restassured.RestAssured;
 import io.restassured.http.ContentType;
 import org.apache.commons.lang3.RandomStringUtils;
 import org.apache.http.HttpStatus;
-import org.hamcrest.Matchers;
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.TestInstance;
-import org.junit.jupiter.api.extension.RegisterExtension;
-import org.junit.jupiter.api.parallel.Execution;
 
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -40,44 +34,19 @@ import static com.github.tomakehurst.wiremock.client.WireMock.get;
 import static com.github.tomakehurst.wiremock.client.WireMock.post;
 import static com.github.tomakehurst.wiremock.client.WireMock.urlEqualTo;
 import static com.github.tomakehurst.wiremock.client.WireMock.urlPathMatching;
-import static com.github.tomakehurst.wiremock.core.WireMockConfiguration.wireMockConfig;
 import static io.restassured.RestAssured.given;
-import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.Matchers.nullValue;
-import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 
-@TestInstance(TestInstance.Lifecycle.PER_CLASS)
-@Execution(SAME_THREAD)
-class StateTemplateHelperProviderExtensionTest {
-
-    private static final String TEST_URL = "/test";
-    private static final CaffeineStore store = new CaffeineStore();
-    private static final ObjectMapper mapper = new ObjectMapper();
-    @RegisterExtension
-    public static WireMockExtension wm = WireMockExtension.newInstance()
-        .options(
-            wireMockConfig().dynamicPort().dynamicHttpsPort().templatingEnabled(true).globalTemplating(true)
-                .extensions(new StateExtension(store))
-        )
-        .build();
-
-    @BeforeAll
-    void setupAll() {
-        RestAssured.enableLoggingOfRequestAndResponseIfValidationFails();
-    }
-
-    @BeforeEach
-    void setup() {
-        wm.resetAll();
-    }
+class StateTemplateHelperProviderExtensionTest extends AbstractTestBase {
 
     @Test
     void test_noExtensionUsage_ok() throws JsonProcessingException, URISyntaxException {
         var runtimeInfo = wm.getRuntimeInfo();
         wm.stubFor(
-            post(urlEqualTo(TEST_URL))
+            post(urlEqualTo("/"))
                 .willReturn(
                     WireMock.ok()
                         .withHeader("content-type", "application/json")
@@ -90,88 +59,62 @@ class StateTemplateHelperProviderExtensionTest {
 
         given()
             .accept(ContentType.JSON)
-            .post(new URI(runtimeInfo.getHttpBaseUrl() + TEST_URL))
+            .post(new URI(runtimeInfo.getHttpBaseUrl() + "/"))
             .then()
             .statusCode(HttpStatus.SC_OK)
             .body("testKey", equalTo("testValue"));
     }
 
     @Test
-    void test_unknownContext_fail() throws JsonProcessingException, URISyntaxException {
+    void test_unknownContext_fail() {
         createPostStub();
         createGetStub();
 
         String context = RandomStringUtils.randomAlphabetic(5);
-        getAndAssertContextValue(context, String.format("[ERROR: No state for context %s, property stateValue found]", context));
-    }
-
-    @Test
-    void test_unknownProperty_fail() throws JsonProcessingException, URISyntaxException {
-        var contextValue = RandomStringUtils.randomAlphabetic(5);
-
-        createPostStub();
-        wm.stubFor(
-            get(urlPathMatching(TEST_URL + "/value/[^/]+"))
-                .willReturn(
-                    WireMock.ok()
-                        .withHeader("content-type", "application/json")
-                        .withJsonBody(
-                            mapper.readTree(
-                                mapper.writeValueAsString(Map.of("value", "{{state context=request.pathSegments.[2] property='unknownValue'}}")))
-                        )
-                )
+        getAndAssertContextValue(
+            "state",
+            context,
+            String.format("[ERROR: No state for context %s, property stateValueOne found]", context),
+            String.format("[ERROR: No state for context %s, property stateValueTwo found]", context)
         );
-
-        var context = postAndAssertContextValue(contextValue);
-        getAndAssertContextValue(context, String.format("[ERROR: No state for context %s, property unknownValue found]", context));
     }
 
     @Test
-    void test_returnsStateFromPreviousRequest_ok() throws JsonProcessingException, URISyntaxException {
+    void test_unknownProperty_fail() throws JsonProcessingException {
         var contextValue = RandomStringUtils.randomAlphabetic(5);
 
         createPostStub();
-        createGetStub();
-
-        var context = postAndAssertContextValue(contextValue);
-        getAndAssertContextValue(context, contextValue);
-    }
-
-    @Test
-    void test_returnsFullBodyFromPreviousRequest_ok() throws JsonProcessingException, URISyntaxException {
-        var contextValue = RandomStringUtils.randomAlphabetic(5);
-
-        createPostStub();
-        createGetStub();
-
-        var context = postAndAssertContextValue(contextValue);
-        getAndAssertFullBody(context, contextValue);
-    }
-
-    @Test
-    void test_differentStatesSupported_ok() throws JsonProcessingException, URISyntaxException {
-        var contextValueOne = RandomStringUtils.randomAlphabetic(5);
-        var contextValueTwo = RandomStringUtils.randomAlphabetic(5);
-
-        createPostStub();
-        createGetStub();
-
-        var contextOne = postAndAssertContextValue(contextValueOne);
-        var contextTwo = postAndAssertContextValue(contextValueTwo);
-        getAndAssertContextValue(contextOne, contextValueOne);
-        getAndAssertContextValue(contextTwo, contextValueTwo);
-    }
-
-    private void createGetStub() throws JsonProcessingException {
         wm.stubFor(
-            get(urlPathMatching(TEST_URL + "/value/[^/]+"))
+            get(urlPathMatching("/state/[^/]+"))
                 .willReturn(
                     WireMock.ok()
                         .withHeader("content-type", "application/json")
                         .withJsonBody(
                             mapper.readTree(
                                 mapper.writeValueAsString(Map.of(
-                                        "value", "{{state context=request.pathSegments.[2] property='stateValue'}}"
+                                    "valueOne", "{{state context=request.pathSegments.[1] property='unknownValue'}}",
+                                    "valueTwo", "{{state context=request.pathSegments.[1] property='unknownValue'}}"
+                                )))
+                        )
+                )
+        );
+
+        postAndAssertContextValue("state", contextValue, "one");
+        getAndAssertContextValue("state", contextValue, String.format("[ERROR: No state for context %s, property unknownValue found]", contextValue), String.format("[ERROR: No state for context %s, property unknownValue found]", contextValue));
+    }
+
+    private void createGetStub() {
+        wm.stubFor(
+            get(urlPathMatching("/state/[^/]+"))
+                .willReturn(
+                    WireMock.ok()
+                        .withHeader("content-type", "application/json")
+                        .withJsonBody(
+                            Json.node(
+                                Json.write(
+                                    Map.of(
+                                        "valueOne", "{{state context=request.pathSegments.[1] property='stateValueOne'}}",
+                                        "valueTwo", "{{state context=request.pathSegments.[1] property='stateValueTwo'}}"
                                     )
                                 )
                             )
@@ -179,26 +122,41 @@ class StateTemplateHelperProviderExtensionTest {
                 )
         );
         wm.stubFor(
-            get(urlPathMatching(TEST_URL + "/full/[^/]+"))
+            get(urlPathMatching("/full/[^/]+"))
                 .willReturn(
                     WireMock.ok()
                         .withHeader("content-type", "application/json")
-                        .withBody("{{{state context=request.pathSegments.[2] property='stateBody'}}}")
+                        .withBody("{{{state context=request.pathSegments.[1] property='stateBody'}}}")
                 )
         );
-    }
-
-    private void createPostStub() throws JsonProcessingException {
         wm.stubFor(
-            post(urlEqualTo(TEST_URL))
+            get(urlPathMatching("/list/[^/]+/[^/]+"))
                 .willReturn(
                     WireMock.ok()
                         .withHeader("content-type", "application/json")
                         .withJsonBody(
-                            mapper.readTree(
-                                mapper.writeValueAsString(Map.of(
+                            Json.node(
+                                Json.write(
+                                    Map.of(
+                                        "valueOne", "{{state context=request.pathSegments.[2] list=(join '[' request.pathSegments.[1] '].stateValueOne' '')}}",
+                                        "valueTwo", "{{state context=request.pathSegments.[2] list=(join '[' request.pathSegments.[1] '].stateValueTwo' '')}}"
+                                    )
+                                )
+                            )
+                        )
+                )
+        );
+    }
+
+    private void createPostStub() {
+        wm.stubFor(
+            post(urlEqualTo("/state"))
+                .willReturn(
+                    WireMock.ok()
+                        .withHeader("content-type", "application/json")
+                        .withJsonBody(Json.node(Json.write(Map.of(
                                         "id", "{{randomValue length=32 type='ALPHANUMERIC' uppercase=false}}",
-                                        "contextValue", "{{jsonPath request.body '$.contextValue'}}",
+                                        "contextValue", "{{jsonPath request.body '$.contextValueOne'}}",
                                         "other", "randomValue length=32 type='ALPHANUMERIC'"
                                     )
                                 )
@@ -209,10 +167,43 @@ class StateTemplateHelperProviderExtensionTest {
                     "recordState",
                     Parameters.from(
                         Map.of(
-                            "context", "{{jsonPath response.body '$.id'}}",
+                            "context", "{{jsonPath request.body '$.contextValueOne'}}",
                             "state", Map.of(
-                                "stateValue", "{{jsonPath request.body '$.contextValue'}}",
+                                "stateValueOne", "{{jsonPath request.body '$.contextValueOne'}}",
+                                "stateValueTwo", "{{jsonPath request.body '$.contextValueTwo'}}",
                                 "stateBody", "{{{jsonPath response.body '$'}}}"
+                            )
+                        )
+                    )
+                )
+        );
+        wm.stubFor(
+            post(urlEqualTo("/list"))
+                .willReturn(
+                    WireMock.ok()
+                        .withHeader("content-type", "application/json")
+                        .withJsonBody(Json.node(
+                                Json.write(
+                                    Map.of(
+                                        "id", "{{randomValue length=32 type='ALPHANUMERIC' uppercase=false}}",
+                                        "contextValue", "{{jsonPath request.body '$.contextValueOne'}}",
+                                        "other", "randomValue length=32 type='ALPHANUMERIC'"
+                                    )
+                                )
+                            )
+                        )
+                )
+                .withServeEventListener(
+                    "recordState",
+                    Parameters.from(
+                        Map.of(
+                            "context", "{{jsonPath request.body '$.contextValueOne'}}",
+                            "list", Map.of(
+                                "addLast", Map.of(
+                                    "stateValueOne", "{{jsonPath request.body '$.contextValueOne'}}",
+                                    "stateValueTwo", "{{jsonPath request.body '$.contextValueTwo'}}",
+                                    "stateBody", "{{{jsonPath response.body '$'}}}"
+                                )
                             )
                         )
                     )
@@ -220,44 +211,118 @@ class StateTemplateHelperProviderExtensionTest {
         );
     }
 
-    private void getAndAssertContextValue(String context, String contextValue) throws URISyntaxException {
+    private void getAndAssertContextValue(String path, String context, String valueOne, String valueTwo) {
         given()
             .accept(ContentType.JSON)
-            .get(new URI(String.format("%s%s/value/%s", wm.getRuntimeInfo().getHttpBaseUrl(), TEST_URL, context)))
+            .get(assertDoesNotThrow(() -> new URI(String.format("%s/%s/%s", wm.getRuntimeInfo().getHttpBaseUrl(), path, context))))
             .then()
             .statusCode(HttpStatus.SC_OK)
-            .body("value", equalTo(contextValue))
+            .body("valueOne", equalTo(valueOne))
+            .body("valueTwo", equalTo(valueTwo))
             .body("other", nullValue());
     }
 
-    private void getAndAssertFullBody(String context, String contextValue) throws URISyntaxException {
+    private void getAndAssertFullBody(String contextValue) {
         given()
             .accept(ContentType.JSON)
-            .get(new URI(String.format("%s%s/full/%s", wm.getRuntimeInfo().getHttpBaseUrl(), TEST_URL, context)))
+            .get(assertDoesNotThrow(() -> new URI(String.format("%s/%s/%s", wm.getRuntimeInfo().getHttpBaseUrl(), "full", contextValue))))
             .then()
             .statusCode(HttpStatus.SC_OK)
-            .body("id", equalTo(context))
             .body("contextValue", equalTo(contextValue))
             .body("other", notNullValue())
             .body("value", nullValue());
     }
 
-    private String postAndAssertContextValue(String contextValue) throws URISyntaxException {
-        var context = given()
+    private void postAndAssertContextValue(String path, String contextValueOne, String contextValueTwo) {
+        given()
             .accept(ContentType.JSON)
-            .body(Map.of("contextValue", contextValue))
-            .post(new URI(wm.getRuntimeInfo().getHttpBaseUrl() + TEST_URL))
+            .body(Map.of(
+                    "contextValueOne", contextValueOne,
+                    "contextValueTwo", contextValueTwo
+                )
+            )
+            .post(assertDoesNotThrow(() -> new URI(wm.getRuntimeInfo().getHttpBaseUrl() + "/" + path)))
             .then()
-            .statusCode(HttpStatus.SC_OK)
-            .body("id", Matchers.notNullValue())
-            .extract()
-            .body()
-            .jsonPath().getString("id");
+            .statusCode(HttpStatus.SC_OK);
+    }
 
-        assertThat(context)
-            .isNotNull()
-            .isNotEmpty();
+    @Nested
+    public class Property {
 
-        return context;
+        @BeforeEach
+        void setup() {
+            createPostStub();
+            createGetStub();
+        }
+
+        @Test
+        void test_returnsStateFromPreviousRequest_ok() {
+            var contextValue = RandomStringUtils.randomAlphabetic(5);
+
+            postAndAssertContextValue("state", contextValue, "one");
+            getAndAssertContextValue("state", contextValue, contextValue, "one");
+        }
+
+        @Test
+        void test_returnsFullBodyFromPreviousRequest_ok() {
+            var contextValue = RandomStringUtils.randomAlphabetic(5);
+
+            postAndAssertContextValue("state", contextValue, "one");
+            getAndAssertFullBody(contextValue);
+        }
+
+        @Test
+        void test_differentStatesSupported_ok() {
+            var contextValueOne = RandomStringUtils.randomAlphabetic(5);
+            var contextValueTwo = RandomStringUtils.randomAlphabetic(5);
+
+            postAndAssertContextValue("state", contextValueOne, "one");
+            postAndAssertContextValue("state", contextValueTwo, "one");
+            getAndAssertContextValue("state", contextValueOne, contextValueOne, "one");
+            getAndAssertContextValue("state", contextValueTwo, contextValueTwo, "one");
+        }
+    }
+
+    @Nested
+    public class List {
+
+        @BeforeEach
+        void setup() {
+            createPostStub();
+            createGetStub();
+        }
+
+        @Test
+        void test_returnsListElement_oneItem_ok() {
+            var contextValue = RandomStringUtils.randomAlphabetic(5);
+
+            postAndAssertContextValue("list", contextValue, "one");
+
+            getAndAssertContextValue("list/0", contextValue, contextValue, "one");
+        }
+
+        @Test
+        void test_returnsListElement_multipleItems_ok() {
+            var contextValue = RandomStringUtils.randomAlphabetic(5);
+
+            postAndAssertContextValue("list", contextValue, "one");
+            postAndAssertContextValue("list", contextValue, "two");
+            postAndAssertContextValue("list", contextValue, "three");
+
+            getAndAssertContextValue("list/1", contextValue, contextValue, "two");
+        }
+
+        @Test
+        void test_returnsSingleListElement_lastItem_ok() {
+            var contextValue = RandomStringUtils.randomAlphabetic(5);
+
+            postAndAssertContextValue("list", contextValue, "one");
+            postAndAssertContextValue("list", contextValue, "two");
+            postAndAssertContextValue("list", contextValue, "three");
+
+            getAndAssertContextValue("list/-1", contextValue, contextValue, "three");
+        }
+
+
     }
 }

@@ -17,6 +17,7 @@ package org.wiremock.extensions.state.internal;
 
 import java.util.HashMap;
 import java.util.LinkedList;
+import java.util.List;
 import java.util.Map;
 
 public class Context {
@@ -24,6 +25,7 @@ public class Context {
     private static final int MAX_IDS = 10;
     private final String contextName;
     private final Map<String, String> properties = new HashMap<>();
+    private final LinkedList<Map<String, String>> list = new LinkedList<>();
     private final LinkedList<String> requests = new LinkedList<>();
     private Long updateCount = 1L;
     private Long matchCount = 0L;
@@ -66,12 +68,17 @@ public class Context {
         return properties;
     }
 
+    public LinkedList<Map<String, String>> getList() {
+        return list;
+    }
+
     @Override
     public String toString() {
         return "Context{" +
             "contextName='" + contextName + '\'' +
-            ", updateCount=" + updateCount +
             ", properties=" + properties +
+            ", list=" + list +
+            ", updateCount=" + updateCount +
             '}';
     }
 }

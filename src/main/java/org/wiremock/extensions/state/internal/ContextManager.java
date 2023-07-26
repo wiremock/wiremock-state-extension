@@ -17,8 +17,10 @@ package org.wiremock.extensions.state.internal;
 
 import com.github.tomakehurst.wiremock.store.Store;
 
+import java.util.LinkedList;
 import java.util.Map;
 import java.util.Optional;
+import java.util.function.Consumer;
 
 public class ContextManager {
 
@@ -46,7 +48,7 @@ public class ContextManager {
         }
     }
 
-    public Long createOrUpdateContext(String contextName, Map<String, String> properties) {
+    public Long createOrUpdateContextState(String contextName, Map<String, String> properties) {
         synchronized (store) {
             var context = store.get(contextName)
                 .map(it -> (Context) it)
@@ -55,6 +57,20 @@ public class ContextManager {
                     return it;
                 }).orElseGet(() -> new Context(contextName));
             context.getProperties().putAll(properties);
+            store.put(contextName, context);
+            return context.getUpdateCount();
+        }
+    }
+
+    public Long createOrUpdateContextList(String contextName, Consumer<LinkedList<Map<String, String>>> consumer) {
+        synchronized (store) {
+            var context = store.get(contextName)
+                .map(it -> (Context) it)
+                .map(it -> {
+                    it.incUpdateCount();
+                    return it;
+                }).orElseGet(() -> new Context(contextName));
+            consumer.accept(context.getList());
             store.put(contextName, context);
             return context.getUpdateCount();
         }

@@ -16,24 +16,16 @@
 package org.wiremock.extensions.state;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.tomakehurst.wiremock.client.WireMock;
 import com.github.tomakehurst.wiremock.extension.Parameters;
-import com.github.tomakehurst.wiremock.junit5.WireMockExtension;
-import com.github.tomakehurst.wiremock.store.Store;
-import io.restassured.RestAssured;
 import io.restassured.http.ContentType;
 import io.restassured.response.ValidatableResponse;
 import org.apache.commons.lang3.RandomStringUtils;
 import org.apache.http.HttpStatus;
 import org.hamcrest.Matchers;
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.TestInstance;
-import org.junit.jupiter.api.extension.RegisterExtension;
-import org.junit.jupiter.api.parallel.Execution;
 
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -43,36 +35,16 @@ import static com.github.tomakehurst.wiremock.client.WireMock.get;
 import static com.github.tomakehurst.wiremock.client.WireMock.post;
 import static com.github.tomakehurst.wiremock.client.WireMock.urlEqualTo;
 import static com.github.tomakehurst.wiremock.client.WireMock.urlPathMatching;
-import static com.github.tomakehurst.wiremock.core.WireMockConfiguration.wireMockConfig;
 import static io.restassured.RestAssured.given;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.equalTo;
-import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 
-@TestInstance(TestInstance.Lifecycle.PER_CLASS)
-@Execution(SAME_THREAD)
-class StateRequestMatcherTest {
+class StateRequestMatcherTest extends AbstractTestBase {
 
     private static final String TEST_URL = "/test";
-    private static final Store<String, Object> store = new CaffeineStore();
-    private static final ObjectMapper mapper = new ObjectMapper();
-
-    @RegisterExtension
-    public static WireMockExtension wm = WireMockExtension.newInstance()
-        .options(
-            wireMockConfig().dynamicPort().dynamicHttpsPort().templatingEnabled(true).globalTemplating(true)
-                .extensions(new StateExtension(store))
-        )
-        .build();
-
-    @BeforeAll
-    void setupAll() {
-        RestAssured.enableLoggingOfRequestAndResponseIfValidationFails();
-    }
 
     @BeforeEach
     void setup() throws JsonProcessingException {
-        wm.resetAll();
         createPostStub();
         createGetStub();
     }

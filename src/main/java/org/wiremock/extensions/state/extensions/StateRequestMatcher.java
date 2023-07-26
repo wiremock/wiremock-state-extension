@@ -15,7 +15,6 @@
  */
 package org.wiremock.extensions.state.extensions;
 
-import com.github.tomakehurst.wiremock.core.ConfigurationException;
 import com.github.tomakehurst.wiremock.extension.Parameters;
 import com.github.tomakehurst.wiremock.extension.responsetemplating.RequestTemplateModel;
 import com.github.tomakehurst.wiremock.extension.responsetemplating.TemplateEngine;
@@ -25,6 +24,7 @@ import com.github.tomakehurst.wiremock.matching.RequestMatcherExtension;
 import org.wiremock.extensions.state.internal.Context;
 import org.wiremock.extensions.state.internal.ContextManager;
 import org.wiremock.extensions.state.internal.ContextTemplateModel;
+import org.wiremock.extensions.state.internal.StateExtensionMixin;
 
 import java.util.Arrays;
 import java.util.HashMap;
@@ -41,7 +41,7 @@ import java.util.stream.Collectors;
  *
  * @see org.wiremock.extensions.state.StateExtension
  */
-public class StateRequestMatcher extends RequestMatcherExtension {
+public class StateRequestMatcher extends RequestMatcherExtension implements StateExtensionMixin {
 
     private final TemplateEngine templateEngine;
     private final ContextManager contextManager;
@@ -72,7 +72,7 @@ public class StateRequestMatcher extends RequestMatcherExtension {
             .ofNullable(parameters.getString("hasContext", null))
             .map(template -> hasContext(model, parameters, template))
             .or(() -> Optional.ofNullable(parameters.getString("hasNotContext", null)).map(template -> hasNotContext(model, template)))
-            .orElseThrow(() -> new ConfigurationException("Parameters should only contain 'hasContext' or 'hasNotContext'"));
+            .orElseThrow(() -> createConfigurationError("Parameters should only contain 'hasContext' or 'hasNotContext'"));
     }
 
     private MatchResult hasContext(Map<String, Object> model, Parameters parameters, String template) {
