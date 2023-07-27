@@ -77,7 +77,22 @@ class StateTemplateHelperProviderExtensionTest extends AbstractTestBase {
             String.format("[ERROR: No state for context %s, property stateValueOne found]", context),
             String.format("[ERROR: No state for context %s, property stateValueTwo found]", context),
             String.format("[ERROR: No state for context %s, property listSize found]", context)
-            );
+        );
+    }
+
+    @Test
+    void test_unknownContext_useDefault() {
+        createPostStub();
+        createGetStub();
+
+        String context = RandomStringUtils.randomAlphabetic(5);
+        getAndAssertContextValue(
+            "state/default",
+            context,
+            "defaultStateValueOne",
+            "defaultStateValueTwo",
+            "defaultListSize"
+        );
     }
 
     @Test
@@ -94,7 +109,8 @@ class StateTemplateHelperProviderExtensionTest extends AbstractTestBase {
                             mapper.readTree(
                                 mapper.writeValueAsString(Map.of(
                                     "valueOne", "{{state context=request.pathSegments.[1] property='unknownValue'}}",
-                                    "valueTwo", "{{state context=request.pathSegments.[1] property='unknownValue'}}"
+                                    "valueTwo", "{{state context=request.pathSegments.[1] property='unknownValue'}}",
+                                    "unknown", "{{state context=request.pathSegments.[1] property='unknown' default='defaultUnknown'}}"
                                 )))
                         )
                 )
@@ -110,6 +126,109 @@ class StateTemplateHelperProviderExtensionTest extends AbstractTestBase {
         );
     }
 
+    @Nested
+    public class Property {
+
+        @BeforeEach
+        void setup() {
+            createPostStub();
+            createGetStub();
+        }
+
+        @Test
+        void test_returnsStateFromPreviousRequest_ok() {
+            var contextValue = RandomStringUtils.randomAlphabetic(5);
+
+            postAndAssertContextValue("state", contextValue, "one");
+            getAndAssertContextValue("state", contextValue, contextValue, "one", "0");
+        }
+
+        @Test
+        void test_defaults_returnsStateFromPreviousRequest_ok() {
+            var contextValue = RandomStringUtils.randomAlphabetic(5);
+
+            postAndAssertContextValue("state", contextValue, "one");
+            getAndAssertContextValue("state/default", contextValue, contextValue, "one", "0");
+        }
+
+        @Test
+        void test_returnsFullBodyFromPreviousRequest_ok() {
+            var contextValue = RandomStringUtils.randomAlphabetic(5);
+
+            postAndAssertContextValue("state", contextValue, "one");
+            getAndAssertFullBody(contextValue);
+        }
+
+        @Test
+        void test_differentStatesSupported_ok() {
+            var contextValueOne = RandomStringUtils.randomAlphabetic(5);
+            var contextValueTwo = RandomStringUtils.randomAlphabetic(5);
+
+            postAndAssertContextValue("state", contextValueOne, "one");
+            postAndAssertContextValue("state", contextValueTwo, "one");
+            getAndAssertContextValue("state", contextValueOne, contextValueOne, "one", "0");
+            getAndAssertContextValue("state", contextValueTwo, contextValueTwo, "one", "0");
+        }
+
+
+    }
+    @Nested
+    public class List {
+        @BeforeEach
+        void setup() {
+            createPostStub();
+            createGetStub();
+        }
+
+        @Test
+        void test_returnsListElement_oneItem_ok() {
+            var contextValue = RandomStringUtils.randomAlphabetic(5);
+
+            postAndAssertContextValue("list", contextValue, "one");
+
+            getAndAssertContextValue("list/0", contextValue, contextValue, "one", "1");
+        }
+
+        @Test
+        void test_defaults_knownItem_ok() {
+            var contextValue = RandomStringUtils.randomAlphabetic(5);
+
+            postAndAssertContextValue("list", contextValue, "one");
+
+            getAndAssertContextValue("list/default/0", contextValue, contextValue, "one", "1");
+        }
+
+        @Test
+        void test_defaults_unknownItem_ok() {
+            var contextValue = RandomStringUtils.randomAlphabetic(5);
+
+            postAndAssertContextValue("list", contextValue, "one");
+
+            getAndAssertContextValue("list/default/1", contextValue, "defaultStateValueOne", "defaultStateValueTwo", "1");
+        }
+
+        @Test
+        void test_returnsListElement_multipleItems_ok() {
+            var contextValue = RandomStringUtils.randomAlphabetic(5);
+
+            postAndAssertContextValue("list", contextValue, "one");
+            postAndAssertContextValue("list", contextValue, "two");
+            postAndAssertContextValue("list", contextValue, "three");
+
+            getAndAssertContextValue("list/1", contextValue, contextValue, "two", "3");
+        }
+        @Test
+        void test_returnsSingleListElement_lastItem_ok() {
+            var contextValue = RandomStringUtils.randomAlphabetic(5);
+
+            postAndAssertContextValue("list", contextValue, "one");
+            postAndAssertContextValue("list", contextValue, "two");
+            postAndAssertContextValue("list", contextValue, "three");
+
+            getAndAssertContextValue("list/-1", contextValue, contextValue, "three", "3");
+        }
+
+    }
     private void createGetStub() {
         wm.stubFor(
             get(urlPathMatching("/state/[^/]+"))
@@ -122,7 +241,27 @@ class StateTemplateHelperProviderExtensionTest extends AbstractTestBase {
                                     Map.of(
                                         "valueOne", "{{state context=request.pathSegments.[1] property='stateValueOne'}}",
                                         "valueTwo", "{{state context=request.pathSegments.[1] property='stateValueTwo'}}",
-                                        "listSize", "{{state context=request.pathSegments.[1] property='listSize'}}"
+                                        "listSize", "{{state context=request.pathSegments.[1] property='listSize'}}",
+                                        "unknown", "{{state context=request.pathSegments.[1] property='unknown' default='defaultUnknown'}}"
+                                    )
+                                )
+                            )
+                        )
+                )
+        );
+        wm.stubFor(
+            get(urlPathMatching("/state/default/[^/]+"))
+                .willReturn(
+                    WireMock.ok()
+                        .withHeader("content-type", "application/json")
+                        .withJsonBody(
+                            Json.node(
+                                Json.write(
+                                    Map.of(
+                                        "valueOne", "{{state context=request.pathSegments.[2] property='stateValueOne' default='defaultStateValueOne'}}",
+                                        "valueTwo", "{{state context=request.pathSegments.[2] property='stateValueTwo'  default='defaultStateValueTwo'}}",
+                                        "listSize", "{{state context=request.pathSegments.[2] property='listSize' default='defaultListSize'}}",
+                                        "unknown", "{{state context=request.pathSegments.[2] property='unknown' default='defaultUnknown'}}"
                                     )
                                 )
                             )
@@ -148,7 +287,28 @@ class StateTemplateHelperProviderExtensionTest extends AbstractTestBase {
                                     Map.of(
                                         "valueOne", "{{state context=request.pathSegments.[2] list=(join '[' request.pathSegments.[1] '].stateValueOne' '')}}",
                                         "valueTwo", "{{state context=request.pathSegments.[2] list=(join '[' request.pathSegments.[1] '].stateValueTwo' '')}}",
-                                        "listSize", "{{state context=request.pathSegments.[2] property='listSize'}}"
+                                        "listSize", "{{state context=request.pathSegments.[2] property='listSize'}}",
+                                        "unknown", "{{state context=request.pathSegments.[1] property='unknown' default='defaultUnknown'}}"
+                                    )
+                                )
+                            )
+                        )
+                )
+        );
+
+        wm.stubFor(
+            get(urlPathMatching("/list/default/[^/]+/[^/]+"))
+                .willReturn(
+                    WireMock.ok()
+                        .withHeader("content-type", "application/json")
+                        .withJsonBody(
+                            Json.node(
+                                Json.write(
+                                    Map.of(
+                                        "valueOne", "{{state context=request.pathSegments.[3] list=(join '[' request.pathSegments.[2] '].stateValueOne' '') default='defaultStateValueOne'}}",
+                                        "valueTwo", "{{state context=request.pathSegments.[3] list=(join '[' request.pathSegments.[2] '].stateValueTwo' '') default='defaultStateValueTwo'}}",
+                                        "listSize", "{{state context=request.pathSegments.[3] property='listSize'  default='defaultListSize'}}",
+                                        "unknown", "{{state context=request.pathSegments.[3] property='unknown' default='defaultUnknown'}}"
                                     )
                                 )
                             )
@@ -229,6 +389,7 @@ class StateTemplateHelperProviderExtensionTest extends AbstractTestBase {
             .body("valueOne", equalTo(valueOne))
             .body("valueTwo", equalTo(valueTwo))
             .body("listSize", equalTo(listSize))
+            .body("unknown", equalTo("defaultUnknown"))
             .body("other", nullValue());
     }
 
@@ -254,85 +415,5 @@ class StateTemplateHelperProviderExtensionTest extends AbstractTestBase {
             .post(assertDoesNotThrow(() -> new URI(wm.getRuntimeInfo().getHttpBaseUrl() + "/" + path)))
             .then()
             .statusCode(HttpStatus.SC_OK);
-    }
-
-    @Nested
-    public class Property {
-
-        @BeforeEach
-        void setup() {
-            createPostStub();
-            createGetStub();
-        }
-
-        @Test
-        void test_returnsStateFromPreviousRequest_ok() {
-            var contextValue = RandomStringUtils.randomAlphabetic(5);
-
-            postAndAssertContextValue("state", contextValue, "one");
-            getAndAssertContextValue("state", contextValue, contextValue, "one", "0");
-        }
-
-        @Test
-        void test_returnsFullBodyFromPreviousRequest_ok() {
-            var contextValue = RandomStringUtils.randomAlphabetic(5);
-
-            postAndAssertContextValue("state", contextValue, "one");
-            getAndAssertFullBody(contextValue);
-        }
-
-        @Test
-        void test_differentStatesSupported_ok() {
-            var contextValueOne = RandomStringUtils.randomAlphabetic(5);
-            var contextValueTwo = RandomStringUtils.randomAlphabetic(5);
-
-            postAndAssertContextValue("state", contextValueOne, "one");
-            postAndAssertContextValue("state", contextValueTwo, "one");
-            getAndAssertContextValue("state", contextValueOne, contextValueOne, "one", "0");
-            getAndAssertContextValue("state", contextValueTwo, contextValueTwo, "one", "0");
-        }
-    }
-
-    @Nested
-    public class List {
-
-        @BeforeEach
-        void setup() {
-            createPostStub();
-            createGetStub();
-        }
-
-        @Test
-        void test_returnsListElement_oneItem_ok() {
-            var contextValue = RandomStringUtils.randomAlphabetic(5);
-
-            postAndAssertContextValue("list", contextValue, "one");
-
-            getAndAssertContextValue("list/0", contextValue, contextValue, "one", "1");
-        }
-
-        @Test
-        void test_returnsListElement_multipleItems_ok() {
-            var contextValue = RandomStringUtils.randomAlphabetic(5);
-
-            postAndAssertContextValue("list", contextValue, "one");
-            postAndAssertContextValue("list", contextValue, "two");
-            postAndAssertContextValue("list", contextValue, "three");
-
-            getAndAssertContextValue("list/1", contextValue, contextValue, "two", "3");
-        }
-
-        @Test
-        void test_returnsSingleListElement_lastItem_ok() {
-            var contextValue = RandomStringUtils.randomAlphabetic(5);
-
-            postAndAssertContextValue("list", contextValue, "one");
-            postAndAssertContextValue("list", contextValue, "two");
-            postAndAssertContextValue("list", contextValue, "three");
-
-            getAndAssertContextValue("list/-1", contextValue, contextValue, "three", "3");
-        }
-
-
     }
 }
