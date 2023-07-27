@@ -300,6 +300,7 @@ class DeleteStateEventListenerTest extends AbstractTestBase {
             var contextName = RandomStringUtils.randomAlphabetic(5);
 
             postRequest("list", contextName, "one");
+            assertList(contextName, list -> assertThat(list).hasSize(1));
             postRequest("list", contextName, "two");
             assertList(contextName, list -> assertThat(list).hasSize(2));
 
@@ -319,6 +320,7 @@ class DeleteStateEventListenerTest extends AbstractTestBase {
             var contextName = RandomStringUtils.randomAlphabetic(5);
 
             postRequest("list", contextName, "one");
+            assertList(contextName, list -> assertThat(list).hasSize(1));
             postRequest("list", contextName, "two");
             assertList(contextName, list -> assertThat(list).hasSize(2));
 
