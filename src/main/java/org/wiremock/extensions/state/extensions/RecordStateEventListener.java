@@ -87,7 +87,8 @@ public class RecordStateEventListener implements ServeEventListener, StateExtens
     private void handleList(String contextName, Map<String, Object> model, RecordStateParameters parameters) {
         Optional.ofNullable(parameters.getList())
             .ifPresent(listConfiguration -> {
-                    Optional.ofNullable(listConfiguration.getAddFirst()).ifPresent(configuration ->
+                    Optional.ofNullable(listConfiguration.getAddFirst())
+                        .ifPresent(configuration ->
                         contextManager.createOrUpdateContextList(contextName, list -> list.addFirst(getPropertiesFromConfiguration(model, configuration))));
                     Optional.ofNullable(listConfiguration.getAddLast()).ifPresent(configuration ->
                         contextManager.createOrUpdateContextList(contextName, list -> list.addLast(getPropertiesFromConfiguration(model, configuration))));

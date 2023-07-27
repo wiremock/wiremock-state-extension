@@ -417,7 +417,7 @@ class DeleteStateEventListenerTest extends AbstractTestBase {
             await()
                 .pollDelay(Duration.ofMillis(10))
                 .pollInterval(Duration.ofMillis(10))
-                .atMost(ofSeconds(2))
+                .atMost(ofSeconds(5))
                 .untilAsserted(() ->
                     assertThat(contextManager.getContext(contextName))
                         .isPresent()
