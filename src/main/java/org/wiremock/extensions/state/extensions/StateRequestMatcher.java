@@ -114,7 +114,10 @@ public class StateRequestMatcher extends RequestMatcherExtension implements Stat
     private enum CountMatcher {
         updateCountEqualTo((Context context, Long value) -> context.getUpdateCount().equals(value)),
         updateCountLessThan((Context context, Long value) -> context.getUpdateCount() < value),
-        updateCountMoreThan((Context context, Long value) -> context.getUpdateCount() > value);
+        updateCountMoreThan((Context context, Long value) -> context.getUpdateCount() > value),
+        listSizeEqualTo((Context context, Long value) -> context.getList().size() == value),
+        listSizeLessThan((Context context, Long value) -> context.getList().size() < value),
+        listSizeMoreThan((Context context, Long value) -> context.getList().size() > value);
 
         private final BiFunction<Context, Long, Boolean> evaluator;
 

@@ -254,7 +254,7 @@ The state is recorded in `serveEventListeners` of a stub. The following function
 - `state` : stores a state in a context. Storing the state multiple times can be used to selectively overwrite existing properties.
 - `list` : stores a state in a list. Can be used to prepend/append new states to an existing list. List elements cannot be modified (only read/deleted).
 
-`state` and `list` can be used in the same `ServeEventListener`. Adding multiple `recordState` `ServeEventListener` is supported.
+`state` and `list` can be used in the same `ServeEventListener` (would count as two updates). Adding multiple `recordState` `ServeEventListener` is supported.
 
 The following parameters have to be provided:
 
@@ -588,6 +588,36 @@ As for other matchers, templating is supported.
 }
 ```
 
+### List size match
+
+The list size (which is modified via `recordState` or `deleteState`)  can be used
+for request matching as well. The following matchers are available:
+
+- `listSizeEqualTo`
+- `listSizeLessThan`
+- `listSizeMoreThan`
+
+As for other matchers, templating is supported.
+
+```json
+{
+  "request": {
+    "method": "GET",
+    "urlPattern": "/test/[^\/]+",
+    "customMatcher": {
+      "name": "state-matcher",
+      "parameters": {
+        "hasContext": "{{request.pathSegments.[1]}}",
+        "listSizeEqualTo": "1"
+      }
+    }
+  },
+  "response": {
+    "status": 200
+  }
+}
+```
+
 ### Negative context exists match
 
 ```json
@@ -619,6 +649,7 @@ The handler has the following parameters:
 - `property`: the property of the state context to retrieve, so e.g. `firstName`
     - `property='updateCount` retrieves the number of updates to a certain state.
       The number matches the one described in [Context update count match](#context-update-count-match)
+    - `property='listSize` retrieves the number of entries of `list`
 - `list`: Getting an entry of the context's `list`, identified via a JSON path. Examples:
     - getting the first state in the list: `list='[0].myProperty`
     - getting the last state in the list: `list='[-1].myProperty`

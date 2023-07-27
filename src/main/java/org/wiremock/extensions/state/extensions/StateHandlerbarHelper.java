@@ -63,6 +63,8 @@ public class StateHandlerbarHelper extends HandlebarsHelper<Object> {
             .map(context -> {
                     if ("updateCount".equals(property)) {
                         return context.getUpdateCount();
+                    } else if ("listSize".equals(property)) {
+                        return context.getList().size();
                     } else {
                         return context.getProperties().get(property);
                     }

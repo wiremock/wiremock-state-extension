@@ -75,8 +75,9 @@ class StateTemplateHelperProviderExtensionTest extends AbstractTestBase {
             "state",
             context,
             String.format("[ERROR: No state for context %s, property stateValueOne found]", context),
-            String.format("[ERROR: No state for context %s, property stateValueTwo found]", context)
-        );
+            String.format("[ERROR: No state for context %s, property stateValueTwo found]", context),
+            String.format("[ERROR: No state for context %s, property listSize found]", context)
+            );
     }
 
     @Test
@@ -100,7 +101,13 @@ class StateTemplateHelperProviderExtensionTest extends AbstractTestBase {
         );
 
         postAndAssertContextValue("state", contextValue, "one");
-        getAndAssertContextValue("state", contextValue, String.format("[ERROR: No state for context %s, property unknownValue found]", contextValue), String.format("[ERROR: No state for context %s, property unknownValue found]", contextValue));
+        getAndAssertContextValue(
+            "state",
+            contextValue,
+            String.format("[ERROR: No state for context %s, property unknownValue found]", contextValue),
+            String.format("[ERROR: No state for context %s, property unknownValue found]", contextValue),
+            null
+        );
     }
 
     private void createGetStub() {
@@ -114,7 +121,8 @@ class StateTemplateHelperProviderExtensionTest extends AbstractTestBase {
                                 Json.write(
                                     Map.of(
                                         "valueOne", "{{state context=request.pathSegments.[1] property='stateValueOne'}}",
-                                        "valueTwo", "{{state context=request.pathSegments.[1] property='stateValueTwo'}}"
+                                        "valueTwo", "{{state context=request.pathSegments.[1] property='stateValueTwo'}}",
+                                        "listSize", "{{state context=request.pathSegments.[1] property='listSize'}}"
                                     )
                                 )
                             )
@@ -139,7 +147,8 @@ class StateTemplateHelperProviderExtensionTest extends AbstractTestBase {
                                 Json.write(
                                     Map.of(
                                         "valueOne", "{{state context=request.pathSegments.[2] list=(join '[' request.pathSegments.[1] '].stateValueOne' '')}}",
-                                        "valueTwo", "{{state context=request.pathSegments.[2] list=(join '[' request.pathSegments.[1] '].stateValueTwo' '')}}"
+                                        "valueTwo", "{{state context=request.pathSegments.[2] list=(join '[' request.pathSegments.[1] '].stateValueTwo' '')}}",
+                                        "listSize", "{{state context=request.pathSegments.[2] property='listSize'}}"
                                     )
                                 )
                             )
@@ -211,7 +220,7 @@ class StateTemplateHelperProviderExtensionTest extends AbstractTestBase {
         );
     }
 
-    private void getAndAssertContextValue(String path, String context, String valueOne, String valueTwo) {
+    private void getAndAssertContextValue(String path, String context, String valueOne, String valueTwo, String listSize) {
         given()
             .accept(ContentType.JSON)
             .get(assertDoesNotThrow(() -> new URI(String.format("%s/%s/%s", wm.getRuntimeInfo().getHttpBaseUrl(), path, context))))
@@ -219,6 +228,7 @@ class StateTemplateHelperProviderExtensionTest extends AbstractTestBase {
             .statusCode(HttpStatus.SC_OK)
             .body("valueOne", equalTo(valueOne))
             .body("valueTwo", equalTo(valueTwo))
+            .body("listSize", equalTo(listSize))
             .body("other", nullValue());
     }
 
@@ -260,7 +270,7 @@ class StateTemplateHelperProviderExtensionTest extends AbstractTestBase {
             var contextValue = RandomStringUtils.randomAlphabetic(5);
 
             postAndAssertContextValue("state", contextValue, "one");
-            getAndAssertContextValue("state", contextValue, contextValue, "one");
+            getAndAssertContextValue("state", contextValue, contextValue, "one", "0");
         }
 
         @Test
@@ -278,8 +288,8 @@ class StateTemplateHelperProviderExtensionTest extends AbstractTestBase {
 
             postAndAssertContextValue("state", contextValueOne, "one");
             postAndAssertContextValue("state", contextValueTwo, "one");
-            getAndAssertContextValue("state", contextValueOne, contextValueOne, "one");
-            getAndAssertContextValue("state", contextValueTwo, contextValueTwo, "one");
+            getAndAssertContextValue("state", contextValueOne, contextValueOne, "one", "0");
+            getAndAssertContextValue("state", contextValueTwo, contextValueTwo, "one", "0");
         }
     }
 
@@ -298,7 +308,7 @@ class StateTemplateHelperProviderExtensionTest extends AbstractTestBase {
 
             postAndAssertContextValue("list", contextValue, "one");
 
-            getAndAssertContextValue("list/0", contextValue, contextValue, "one");
+            getAndAssertContextValue("list/0", contextValue, contextValue, "one", "1");
         }
 
         @Test
@@ -309,7 +319,7 @@ class StateTemplateHelperProviderExtensionTest extends AbstractTestBase {
             postAndAssertContextValue("list", contextValue, "two");
             postAndAssertContextValue("list", contextValue, "three");
 
-            getAndAssertContextValue("list/1", contextValue, contextValue, "two");
+            getAndAssertContextValue("list/1", contextValue, contextValue, "two", "3");
         }
 
         @Test
@@ -320,7 +330,7 @@ class StateTemplateHelperProviderExtensionTest extends AbstractTestBase {
             postAndAssertContextValue("list", contextValue, "two");
             postAndAssertContextValue("list", contextValue, "three");
 
-            getAndAssertContextValue("list/-1", contextValue, contextValue, "three");
+            getAndAssertContextValue("list/-1", contextValue, contextValue, "three", "3");
         }
 
 
