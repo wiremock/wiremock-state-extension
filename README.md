@@ -397,6 +397,46 @@ To append a state to a list:
 }
 ```
 
+### Accessing the previous state
+
+You can use the `state` helper to temporarily access the previous state. Use the `state` helper in the same way as you would use it when you [retrieve a state](#retrieve-a-state).
+
+**Note:** This extension does not keep a history in itself but it's an effect of the evaluation order.
+As templates are evaluated before the state is written, the state you access in `recordState` is the one before you store the new one
+(so there might be none - you might want to use `default` for these cases). In case you have multiple `recordState` `serveEventListeners`, you will have new states
+being created in between, thus the previous state is the last stored one (so: not the one before the request).
+
+1. listener 1 is executed
+   1. accesses state n
+   2. stores state n+1
+2. listener 2 is executed
+    1. accesses state n+1
+    2. stores state n+2
+
+The evaluation order of listeners within a stub as well as across stubs is not guaranteed.
+
+```json
+{
+  "request": {},
+  "response": {},
+  "serveEventListeners": [
+    {
+      "name": "recordState",
+      "parameters": {
+        "context": "{{jsonPath response.body '$.id'}}",
+        "state": {
+          "id": "{{jsonPath response.body '$.id'}}",
+          "firstName": "{{jsonPath request.body '$.firstName'}}",
+          "lastName": "{{jsonPath request.body '$.lastName'}}",
+          "birthName": "{{state context='$.id' property='lastName' default=''}}"
+        }
+      }
+    }
+  ]
+}
+```
+
+
 ## Deleting a state
 
 Similar to recording a state, its deletion can be initiated in  `serveEventListeners` of a stub.
@@ -659,6 +699,9 @@ The handler has the following parameters:
 You have to choose either `property` or `list` (otherwise, you will get a configuration error).
 
 To retrieve a full body, use: `{{{state context=request.pathSegments.[1] property='fullBody'}}}` .
+
+When registering this extension, this helper is available via  WireMock's [response templating](https://wiremock.org/3.x/docs/response-templating/) as well as 
+in all configuration options of this extension.
 
 ### Error handling
 

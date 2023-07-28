@@ -15,42 +15,16 @@
  */
 package org.wiremock.extensions.state;
 
-import com.github.tomakehurst.wiremock.extension.Extension;
-import com.github.tomakehurst.wiremock.extension.ExtensionFactory;
-import com.github.tomakehurst.wiremock.extension.WireMockServices;
-import com.github.tomakehurst.wiremock.extension.responsetemplating.TemplateEngine;
-import com.github.tomakehurst.wiremock.store.Store;
-import org.wiremock.extensions.state.extensions.DeleteStateEventListener;
-import org.wiremock.extensions.state.extensions.RecordStateEventListener;
-import org.wiremock.extensions.state.extensions.StateRequestMatcher;
-import org.wiremock.extensions.state.extensions.StateTemplateHelperProviderExtension;
-import org.wiremock.extensions.state.internal.ContextManager;
-
-import java.util.Collections;
-import java.util.List;
-
 /**
  * Factory to register all extensions for handling state for standalone service.
- *
- * Uses {@link org.wiremock.extensions.state.CaffeineStore}.
+ * <p>
+ * Uses {@link org.wiremock.extensions.state.CaffeineStore} as store.
  *
  * @see CaffeineStore
  */
-public class StandaloneStateExtension implements ExtensionFactory {
+public class StandaloneStateExtension extends StateExtension {
 
-    private final TemplateEngine templateEngine = new TemplateEngine(Collections.emptyMap(), null, Collections.emptySet(), false);
-
-    private final Store<String, Object> store = new CaffeineStore();
-
-    private final ContextManager contextManager = new ContextManager(store);;
-
-    @Override
-    public List<Extension> create(WireMockServices services) {
-        return List.of(
-            new RecordStateEventListener(contextManager, templateEngine),
-            new DeleteStateEventListener(contextManager, templateEngine),
-            new StateRequestMatcher(contextManager, templateEngine),
-            new StateTemplateHelperProviderExtension(contextManager)
-        );
+    public StandaloneStateExtension() {
+        super(new CaffeineStore());
     }
 }
