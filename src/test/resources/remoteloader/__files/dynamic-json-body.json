@@ -1,0 +1,3 @@
+{
+  "result": "{{state context=(join 'dynamic-process' request.pathSegments.[2] '-') property='id'}}"
+}
