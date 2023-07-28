@@ -69,7 +69,8 @@ class RecordStateEventListenerTest extends AbstractTestBase {
                             "context", "{{request.pathSegments.[1]}}",
                             "state", Map.of(
                                 "stateValueOne", "{{jsonPath request.body '$.contextValueOne'}}",
-                                "stateValueTwo", "{{jsonPath request.body '$.contextValueTwo'}}"
+                                "stateValueTwo", "{{jsonPath request.body '$.contextValueTwo'}}",
+                                "previousStateValueTwo", "{{state context=request.pathSegments.[1] property='stateValueTwo' default='noPrevious'}}"
                             )
                         )
                     )
@@ -130,7 +131,7 @@ class RecordStateEventListenerTest extends AbstractTestBase {
                 .pollInterval(Duration.ofMillis(10))
                 .atMost(Duration.ofSeconds(5)).untilAsserted(() -> assertThat(contextManager.numUpdates(contextName)).isEqualTo(1));
 
-            assertContext(contextName, contextName, "one");
+            assertContext(contextName, contextName, "one", "noPrevious");
         }
 
         @Test
@@ -145,7 +146,7 @@ class RecordStateEventListenerTest extends AbstractTestBase {
                 .pollInterval(Duration.ofMillis(10))
                 .atMost(Duration.ofSeconds(5)).untilAsserted(() -> assertThat(contextManager.numUpdates(contextName)).isEqualTo(2));
 
-            assertContext(contextName, contextName, "two");
+            assertContext(contextName, contextName, "two", "one");
         }
 
         @Test
@@ -163,19 +164,20 @@ class RecordStateEventListenerTest extends AbstractTestBase {
                 .pollInterval(Duration.ofMillis(10))
                 .atMost(Duration.ofSeconds(5)).untilAsserted(() -> assertThat(contextManager.numUpdates(contextNameTwo)).isEqualTo(1));
 
-            assertContext(contextNameOne, contextNameOne, "one");
-            assertContext(contextNameTwo, contextNameTwo, "two");
+            assertContext(contextNameOne, contextNameOne, "one", "noPrevious");
+            assertContext(contextNameTwo, contextNameTwo, "two", "noPrevious");
         }
 
-        private void assertContext(String contextNameTwo, String stateValueOne, String stateValueTwo) {
+        private void assertContext(String contextNameTwo, String stateValueOne, String stateValueTwo, String statePrevious) {
             assertThat(contextManager.getContext(contextNameTwo))
                 .isPresent()
                 .hasValueSatisfying(it -> {
                         assertThat(it.getList()).isEmpty();
                         assertThat(it.getProperties())
-                            .hasSize(2)
+                            .hasSize(3)
                             .containsEntry("stateValueOne", stateValueOne)
-                            .containsEntry("stateValueTwo", stateValueTwo);
+                            .containsEntry("stateValueTwo", stateValueTwo)
+                            .containsEntry("previousStateValueTwo", statePrevious);
                     }
                 );
         }
@@ -251,9 +253,7 @@ class RecordStateEventListenerTest extends AbstractTestBase {
 
             postRequest("state", context, "one");
 
-            await()
-                .pollInterval(Duration.ofMillis(10))
-                .atMost(Duration.ofSeconds(2)).untilAsserted(() -> assertThat(contextManager.numUpdates(context)).isEqualTo(1));
+            assertContextNumUpdates(context, 1);
         }
 
         @Test
@@ -264,9 +264,7 @@ class RecordStateEventListenerTest extends AbstractTestBase {
             postRequest("state", context, "one");
             postRequest("state", context, "one");
 
-            await()
-                .pollInterval(Duration.ofMillis(10))
-                .atMost(Duration.ofSeconds(2)).untilAsserted(() -> assertThat(contextManager.numUpdates(context)).isEqualTo(3));
+            assertContextNumUpdates(context, 3);
         }
 
         @Test
@@ -278,12 +276,8 @@ class RecordStateEventListenerTest extends AbstractTestBase {
             postRequest("state", contextTwo, "one");
             postRequest("state", contextOne, "one");
 
-            await()
-                .pollInterval(Duration.ofMillis(10))
-                .atMost(Duration.ofSeconds(2)).untilAsserted(() -> assertThat(contextManager.numUpdates(contextOne)).isEqualTo(2));
-            await()
-                .pollInterval(Duration.ofMillis(10))
-                .atMost(Duration.ofSeconds(2)).untilAsserted(() -> assertThat(contextManager.numUpdates(contextTwo)).isEqualTo(1));
+            assertContextNumUpdates(contextOne, 2);
+            assertContextNumUpdates(contextTwo, 1);
         }
 
     }
