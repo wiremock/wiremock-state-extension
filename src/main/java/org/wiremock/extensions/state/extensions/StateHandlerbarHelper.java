@@ -15,8 +15,10 @@
  */
 package org.wiremock.extensions.state.extensions;
 
+import com.fasterxml.jackson.core.JsonParser;
 import com.github.jknack.handlebars.Options;
 import com.github.tomakehurst.wiremock.extension.responsetemplating.helpers.HandlebarsHelper;
+import com.jayway.jsonpath.JsonPath;
 import org.apache.commons.lang3.StringUtils;
 import org.wiremock.extensions.state.internal.ContextManager;
 
@@ -39,20 +41,39 @@ public class StateHandlerbarHelper extends HandlebarsHelper<Object> {
     public Object apply(Object o, Options options) {
         String contextName = options.hash("context");
         String property = options.hash("property");
+        String list = options.hash("list");
         if (StringUtils.isEmpty(contextName)) {
             return handleError("'context' cannot be empty");
         }
-        if (StringUtils.isEmpty(property)) {
-            return handleError("'property' cannot be empty");
+        if (StringUtils.isBlank(property) && StringUtils.isBlank(list)) {
+            return handleError("Either 'property' or 'list' has to be set");
         }
+        if (StringUtils.isNotBlank(property) && StringUtils.isNotBlank(list)) {
+            return handleError("Either 'property' or 'list' has to be set");
+        }
+        if (StringUtils.isNotBlank(property)) {
+            return getProperty(contextName, property);
+        } else {
+            return getList(contextName, list);
+        }
+    }
+
+    private Object getProperty(String contextName, String property) {
         return contextManager.getContext(contextName)
             .map(context -> {
                     if ("updateCount".equals(property)) {
                         return context.getUpdateCount();
+                    } else if ("listSize".equals(property)) {
+                        return context.getList().size();
                     } else {
                         return context.getProperties().get(property);
                     }
                 }
             ).orElse(handleError(String.format("No state for context %s, property %s found", contextName, property)));
+    }
+    private Object getList(String contextName, String list) {
+        return contextManager.getContext(contextName)
+            .map(context -> JsonPath.read(context.getList(), list))
+            .orElse(handleError(String.format("No state for context %s, list %s found", contextName, list)));
     }
 }

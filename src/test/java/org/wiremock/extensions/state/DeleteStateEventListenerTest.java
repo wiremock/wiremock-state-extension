@@ -17,134 +17,40 @@ package org.wiremock.extensions.state;
 
 import com.github.tomakehurst.wiremock.client.WireMock;
 import com.github.tomakehurst.wiremock.extension.Parameters;
-import com.github.tomakehurst.wiremock.junit5.WireMockExtension;
-import io.restassured.RestAssured;
 import io.restassured.http.ContentType;
 import org.apache.commons.lang3.RandomStringUtils;
 import org.apache.http.HttpStatus;
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.TestInstance;
-import org.junit.jupiter.api.extension.RegisterExtension;
-import org.junit.jupiter.api.parallel.Execution;
-import org.wiremock.extensions.state.internal.ContextManager;
 
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.time.Duration;
+import java.util.LinkedList;
 import java.util.Map;
+import java.util.function.Consumer;
 
 import static com.github.tomakehurst.wiremock.client.WireMock.get;
 import static com.github.tomakehurst.wiremock.client.WireMock.urlPathMatching;
-import static com.github.tomakehurst.wiremock.core.WireMockConfiguration.wireMockConfig;
 import static io.restassured.RestAssured.given;
+import static java.time.Duration.ofSeconds;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
-import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 
-@TestInstance(TestInstance.Lifecycle.PER_CLASS)
-@Execution(SAME_THREAD)
-class DeleteStateEventListenerTest {
-    private static final String TEST_URL = "/test";
-    private static final CaffeineStore store = new CaffeineStore();
-    private static final ContextManager contextManager = new ContextManager(store);
-
-    @RegisterExtension
-    public static WireMockExtension wm = WireMockExtension.newInstance()
-        .options(
-            wireMockConfig().dynamicPort().dynamicHttpsPort().templatingEnabled(true).globalTemplating(true)
-                .extensions(new StateExtension(store))
-        )
-        .build();
-
-    @BeforeAll
-    void setupAll() {
-        RestAssured.enableLoggingOfRequestAndResponseIfValidationFails();
-    }
+class DeleteStateEventListenerTest extends AbstractTestBase {
 
     @BeforeEach
     void setup() {
-        wm.resetAll();
-        createGetStub();
+        createGetStubState();
+        createGetStubList();
         createPostStub();
     }
 
-
-    @Test
-    void test_unknownContext_noOtherContext_ok() throws URISyntaxException {
-        var context = RandomStringUtils.randomAlphabetic(5);
-
-        getRequest(context);
-
-        await()
-            .pollDelay(Duration.ofSeconds(1))
-            .pollInterval(Duration.ofMillis(10))
-            .atMost(Duration.ofSeconds(5)).untilAsserted(() -> assertThat(contextManager.getContext(context)).isEmpty());
-    }
-
-    @Test
-    void test_unknownContext_otherContext_ok() throws URISyntaxException {
-        var context = RandomStringUtils.randomAlphabetic(5);
-        var otherContext = RandomStringUtils.randomAlphabetic(5);
-
-        postRequest(otherContext);
-        getRequest(context);
-
-        await()
-            .pollDelay(Duration.ofSeconds(1))
-            .pollInterval(Duration.ofMillis(10))
-            .atMost(Duration.ofSeconds(5)).untilAsserted(() -> assertThat(contextManager.getContext(context)).isEmpty());
-        await()
-            .pollDelay(Duration.ofSeconds(1))
-            .pollInterval(Duration.ofMillis(10))
-            .atMost(Duration.ofSeconds(5)).untilAsserted(() -> assertThat(contextManager.getContext(otherContext)).isPresent());
-    }
-
-    @Test
-    void test_knownContext_noOtherContext_ok() throws URISyntaxException {
-        var context = RandomStringUtils.randomAlphabetic(5);
-
-        postRequest(context);
-        await()
-            .pollInterval(Duration.ofMillis(10))
-            .atMost(Duration.ofSeconds(5)).untilAsserted(() -> assertThat(contextManager.getContext(context)).isPresent());
-
-        getRequest(context);
-        await()
-            .pollInterval(Duration.ofMillis(10))
-            .atMost(Duration.ofSeconds(5)).untilAsserted(() -> assertThat(contextManager.getContext(context)).isEmpty());
-    }
-
-    @Test
-    void test_knownContext_withOtherContext_ok() throws URISyntaxException {
-        var context = RandomStringUtils.randomAlphabetic(5);
-        var otherContext = RandomStringUtils.randomAlphabetic(5);
-
-        postRequest(context);
-        postRequest(otherContext);
-
-        await()
-            .pollInterval(Duration.ofMillis(10))
-            .atMost(Duration.ofSeconds(5)).untilAsserted(() -> assertThat(contextManager.getContext(context)).isPresent());
-        await()
-            .pollInterval(Duration.ofMillis(10))
-            .atMost(Duration.ofSeconds(5)).untilAsserted(() -> assertThat(contextManager.getContext(otherContext)).isPresent());
-
-        getRequest(context);
-        await()
-            .pollInterval(Duration.ofMillis(10))
-            .atMost(Duration.ofSeconds(5)).untilAsserted(() -> assertThat(contextManager.getContext(context)).isEmpty());
-        await()
-            .pollInterval(Duration.ofMillis(10))
-            .atMost(Duration.ofSeconds(5)).untilAsserted(() -> assertThat(contextManager.getContext(otherContext)).isPresent());
-    }
-
-
-    private void getRequest(String context) throws URISyntaxException {
+    private void getRequest(String path, String context) throws URISyntaxException {
         given()
             .accept(ContentType.JSON)
-            .get(new URI(String.format("%s%s/%s", wm.getRuntimeInfo().getHttpBaseUrl(), TEST_URL, context)))
+            .get(new URI(String.format("%s/%s/%s", wm.getRuntimeInfo().getHttpBaseUrl(), path, context)))
             .then()
             .statusCode(HttpStatus.SC_OK)
             .extract()
@@ -152,18 +58,19 @@ class DeleteStateEventListenerTest {
             .jsonPath().get("value");
     }
 
-    private void postRequest(String context) throws URISyntaxException {
+    private void postRequest(String path, String contextName, String contextValueTwo) throws URISyntaxException {
         given()
             .accept(ContentType.JSON)
-            .body(Map.of("contextValue", context))
-            .post(new URI(wm.getRuntimeInfo().getHttpBaseUrl() + TEST_URL + "/" + context))
+            .body(Map.of("contextValueOne", contextName))
+            .body(Map.of("contextValueTwo", contextValueTwo))
+            .post(new URI(wm.getRuntimeInfo().getHttpBaseUrl() + "/" + path + "/" + contextName))
             .then()
             .statusCode(HttpStatus.SC_OK);
     }
 
     private void createPostStub() {
         wm.stubFor(
-            WireMock.post(urlPathMatching(TEST_URL + "/[^/]+"))
+            WireMock.post(urlPathMatching("/state/[^/]+"))
                 .willReturn(
                     WireMock.ok()
                         .withHeader("content-type", "application/json")
@@ -175,17 +82,39 @@ class DeleteStateEventListenerTest {
                         Map.of(
                             "context", "{{request.pathSegments.[1]}}",
                             "state", Map.of(
-                                "stateValue", "{{jsonPath request.body '$.contextValue'}}"
+                                "stateValueOne", "{{jsonPath request.body '$.contextValueOne'}}",
+                                "stateValueTwo", "{{jsonPath request.body '$.contextValueTwo'}}"
                             )
                         )
                     )
                 )
         );
+        wm.stubFor(
+            WireMock.post(urlPathMatching("/list/[^/]+"))
+                .willReturn(
+                    WireMock.ok()
+                        .withHeader("content-type", "application/json")
+                        .withBody("{}")
+                )
+                .withServeEventListener(
+                    "recordState",
+                    Parameters.from(
+                        Map.of(
+                            "context", "{{request.pathSegments.[1]}}",
+                            "list", Map.of(
+                                "addLast", Map.of(
+                                    "stateValueOne", "{{jsonPath request.body '$.contextValueOne'}}",
+                                    "stateValueTwo", "{{jsonPath request.body '$.contextValueTwo'}}"
+                                )
+                            )
+                        )
+                    )
+                ));
     }
 
-    private void createGetStub() {
+    private void createGetStubState() {
         wm.stubFor(
-            get(urlPathMatching(TEST_URL + "/[^/]+"))
+            get(urlPathMatching("/state/[^/]+"))
                 .willReturn(
                     WireMock.ok()
                         .withHeader("content-type", "application/json")
@@ -201,5 +130,302 @@ class DeleteStateEventListenerTest {
                 )
 
         );
+    }
+
+    private void createGetStubList() {
+        wm.stubFor(
+            get(urlPathMatching("/list/deleteFirst/[^/]+"))
+                .willReturn(
+                    WireMock.ok()
+                        .withHeader("content-type", "application/json")
+                        .withBody("{}")
+                )
+                .withServeEventListener(
+                    "deleteState",
+                    Parameters.from(
+                        Map.of(
+                            "context", "{{request.pathSegments.[2]}}",
+                            "list", Map.of("deleteFirst", true)
+                        )
+                    )
+                )
+        );
+        wm.stubFor(
+            get(urlPathMatching("/list/deleteLast/[^/]+"))
+                .willReturn(
+                    WireMock.ok()
+                        .withHeader("content-type", "application/json")
+                        .withBody("{}")
+                )
+                .withServeEventListener(
+                    "deleteState",
+                    Parameters.from(
+                        Map.of(
+                            "context", "{{request.pathSegments.[2]}}",
+                            "list", Map.of("deleteLast", true)
+                        )
+                    )
+                )
+        );
+        wm.stubFor(
+            get(urlPathMatching("/list/deleteIndex/[^/]+/[^/]+"))
+                .willReturn(
+                    WireMock.ok()
+                        .withHeader("content-type", "application/json")
+                        .withBody("{}")
+                )
+                .withServeEventListener(
+                    "deleteState",
+                    Parameters.from(
+                        Map.of(
+                            "context", "{{request.pathSegments.[3]}}",
+                            "list", Map.of("deleteIndex", "{{request.pathSegments.[2]}}")
+                        )
+                    )
+                )
+        );
+        wm.stubFor(
+            get(urlPathMatching("/list/deleteWhere/[^/]+/[^/]+"))
+                .willReturn(
+                    WireMock.ok()
+                        .withHeader("content-type", "application/json")
+                        .withBody("{}")
+                )
+                .withServeEventListener(
+                    "deleteState",
+                    Parameters.from(
+                        Map.of(
+                            "context", "{{request.pathSegments.[3]}}",
+                            "list", Map.of("deleteWhere", Map.of(
+                                    "property", "{{join 'state' 'Value' 'Two' ''}}",
+                                    "value", "{{request.pathSegments.[2]}}"
+                                )
+                            )
+                        )
+                    )
+                )
+        );
+    }
+
+    @Nested
+    public class State {
+
+        @Test
+        void test_unknownContext_noOtherContext_ok() throws URISyntaxException {
+            var context = RandomStringUtils.randomAlphabetic(5);
+
+            getRequest("state", context);
+
+            await()
+                .pollDelay(Duration.ofSeconds(1))
+                .pollInterval(Duration.ofMillis(10))
+                .atMost(Duration.ofSeconds(5)).untilAsserted(() -> assertThat(contextManager.getContext(context)).isEmpty());
+        }
+
+        @Test
+        void test_unknownContext_otherContext_ok() throws URISyntaxException {
+            var context = RandomStringUtils.randomAlphabetic(5);
+            var otherContext = RandomStringUtils.randomAlphabetic(5);
+
+            postRequest("state", otherContext, "one");
+            getRequest("state", context);
+
+            await()
+                .pollDelay(Duration.ofSeconds(1))
+                .pollInterval(Duration.ofMillis(10))
+                .atMost(Duration.ofSeconds(5)).untilAsserted(() -> assertThat(contextManager.getContext(context)).isEmpty());
+            await()
+                .pollDelay(Duration.ofSeconds(1))
+                .pollInterval(Duration.ofMillis(10))
+                .atMost(Duration.ofSeconds(5)).untilAsserted(() -> assertThat(contextManager.getContext(otherContext)).isPresent());
+        }
+
+        @Test
+        void test_knownContext_noOtherContext_ok() throws URISyntaxException {
+            var context = RandomStringUtils.randomAlphabetic(5);
+
+            postRequest("state", context, "one");
+            await()
+                .pollInterval(Duration.ofMillis(10))
+                .atMost(Duration.ofSeconds(5)).untilAsserted(() -> assertThat(contextManager.getContext(context)).isPresent());
+
+            getRequest("state", context);
+            await()
+                .pollInterval(Duration.ofMillis(10))
+                .atMost(Duration.ofSeconds(5)).untilAsserted(() -> assertThat(contextManager.getContext(context)).isEmpty());
+        }
+
+        @Test
+        void test_knownContext_withOtherContext_ok() throws URISyntaxException {
+            var context = RandomStringUtils.randomAlphabetic(5);
+            var otherContext = RandomStringUtils.randomAlphabetic(5);
+
+            postRequest("state", context, "one");
+            postRequest("state", otherContext, "one");
+
+            await()
+                .pollInterval(Duration.ofMillis(10))
+                .atMost(Duration.ofSeconds(5)).untilAsserted(() -> assertThat(contextManager.getContext(context)).isPresent());
+            await()
+                .pollInterval(Duration.ofMillis(10))
+                .atMost(Duration.ofSeconds(5)).untilAsserted(() -> assertThat(contextManager.getContext(otherContext)).isPresent());
+
+            getRequest("state", context);
+            await()
+                .pollInterval(Duration.ofMillis(10))
+                .atMost(Duration.ofSeconds(5)).untilAsserted(() -> assertThat(contextManager.getContext(context)).isEmpty());
+            await()
+                .pollInterval(Duration.ofMillis(10))
+                .atMost(Duration.ofSeconds(5)).untilAsserted(() -> assertThat(contextManager.getContext(otherContext)).isPresent());
+        }
+
+    }
+
+    @Nested
+    public class List {
+        @Test
+        void test_unknownContext_noOtherContext_ok() throws URISyntaxException {
+            var context = RandomStringUtils.randomAlphabetic(5);
+
+            getRequest("list/deleteFirst", context);
+
+            await()
+                .pollDelay(Duration.ofSeconds(1))
+                .pollInterval(Duration.ofMillis(10))
+                .atMost(Duration.ofSeconds(5)).untilAsserted(() -> assertThat(contextManager.getContext(context)).isEmpty());
+        }
+
+        @Test
+        void test_deleteFirst_ok() throws URISyntaxException {
+            var contextName = RandomStringUtils.randomAlphabetic(5);
+
+            postRequest("list", contextName, "one");
+            assertList(contextName, list -> assertThat(list).hasSize(1));
+            postRequest("list", contextName, "two");
+            assertList(contextName, list -> assertThat(list).hasSize(2));
+
+            getRequest("list/deleteFirst", contextName);
+
+            assertList(contextName,
+                list ->
+                    assertThat(list)
+                        .hasSize(1)
+                        .first()
+                        .satisfies(it -> assertThat(it).containsEntry("stateValueTwo", "two"))
+            );
+        }
+
+        @Test
+        void test_deleteLast_ok() throws URISyntaxException {
+            var contextName = RandomStringUtils.randomAlphabetic(5);
+
+            postRequest("list", contextName, "one");
+            assertList(contextName, list -> assertThat(list).hasSize(1));
+            postRequest("list", contextName, "two");
+            assertList(contextName, list -> assertThat(list).hasSize(2));
+
+            getRequest("list/deleteLast", contextName);
+
+            assertList(contextName,
+                list ->
+                    assertThat(list)
+                        .hasSize(1)
+                        .first()
+                        .satisfies(it -> assertThat(it).containsEntry("stateValueTwo", "one"))
+            );
+        }
+
+        @Test
+        void test_deleteIndex_middle_ok() throws URISyntaxException {
+            var contextName = RandomStringUtils.randomAlphabetic(5);
+
+            postRequest("list", contextName, "one");
+            postRequest("list", contextName, "two");
+            postRequest("list", contextName, "three");
+            assertList(contextName, list -> assertThat(list).hasSize(3));
+
+            getRequest("list/deleteIndex/1", contextName);
+
+            assertList(contextName,
+                list -> {
+                    assertThat(list).hasSize(2);
+                    assertThat(list.get(0)).containsEntry("stateValueTwo", "one");
+                    assertThat(list.get(1)).containsEntry("stateValueTwo", "three");
+                }
+            );
+        }
+
+        @Test
+        void test_deleteIndex_last_ok() throws URISyntaxException {
+            var contextName = RandomStringUtils.randomAlphabetic(5);
+
+            postRequest("list", contextName, "one");
+            postRequest("list", contextName, "two");
+            postRequest("list", contextName, "three");
+            assertList(contextName, list -> assertThat(list).hasSize(3));
+
+            getRequest("list/deleteIndex/2", contextName);
+
+            assertList(contextName,
+                list -> {
+                    assertThat(list).hasSize(2);
+                    assertThat(list.get(0)).containsEntry("stateValueTwo", "one");
+                    assertThat(list.get(1)).containsEntry("stateValueTwo", "two");
+                }
+            );
+        }
+
+        @Test
+        void test_deleteWhere_middle_ok() throws URISyntaxException {
+            var contextName = RandomStringUtils.randomAlphabetic(5);
+
+            postRequest("list", contextName, "one");
+            postRequest("list", contextName, "two");
+            postRequest("list", contextName, "three");
+            assertList(contextName, list -> assertThat(list).hasSize(3));
+
+            getRequest("list/deleteWhere/two", contextName);
+
+            assertList(contextName,
+                list -> {
+                    assertThat(list).hasSize(2);
+                    assertThat(list.get(0)).containsEntry("stateValueTwo", "one");
+                    assertThat(list.get(1)).containsEntry("stateValueTwo", "three");
+                }
+            );
+        }
+
+        @Test
+        void test_deleteWhere_last_ok() throws URISyntaxException {
+            var contextName = RandomStringUtils.randomAlphabetic(5);
+
+            postRequest("list", contextName, "one");
+            postRequest("list", contextName, "two");
+            postRequest("list", contextName, "three");
+            assertList(contextName, list -> assertThat(list).hasSize(3));
+
+            getRequest("list/deleteWhere/three", contextName);
+
+            assertList(contextName,
+                list -> {
+                    assertThat(list).hasSize(2);
+                    assertThat(list.get(0)).containsEntry("stateValueTwo", "one");
+                    assertThat(list.get(1)).containsEntry("stateValueTwo", "two");
+                }
+            );
+        }
+
+        private void assertList(String contextName, Consumer<LinkedList<Map<String, String>>> consumer) {
+            await()
+                .pollDelay(Duration.ofMillis(10))
+                .pollInterval(Duration.ofMillis(10))
+                .atMost(ofSeconds(5))
+                .untilAsserted(() ->
+                    assertThat(contextManager.getContext(contextName))
+                        .isPresent()
+                        .hasValueSatisfying(context -> consumer.accept(context.getList()))
+                );
+        }
+
     }
 }
