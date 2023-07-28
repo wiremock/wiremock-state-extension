@@ -15,12 +15,16 @@
  */
 package org.wiremock.extensions.state.extensions;
 
-import com.fasterxml.jackson.core.JsonParser;
 import com.github.jknack.handlebars.Options;
 import com.github.tomakehurst.wiremock.extension.responsetemplating.helpers.HandlebarsHelper;
 import com.jayway.jsonpath.JsonPath;
+import com.jayway.jsonpath.PathNotFoundException;
 import org.apache.commons.lang3.StringUtils;
 import org.wiremock.extensions.state.internal.ContextManager;
+
+import java.util.Optional;
+
+import static com.github.tomakehurst.wiremock.common.LocalNotifier.notifier;
 
 /**
  * Response templating helper to access state.
@@ -42,6 +46,7 @@ public class StateHandlerbarHelper extends HandlebarsHelper<Object> {
         String contextName = options.hash("context");
         String property = options.hash("property");
         String list = options.hash("list");
+        String defaultValue = options.hash("default");
         if (StringUtils.isEmpty(contextName)) {
             return handleError("'context' cannot be empty");
         }
@@ -52,28 +57,46 @@ public class StateHandlerbarHelper extends HandlebarsHelper<Object> {
             return handleError("Either 'property' or 'list' has to be set");
         }
         if (StringUtils.isNotBlank(property)) {
-            return getProperty(contextName, property);
+            return getProperty(contextName, property)
+                .orElseGet(() ->
+                    Optional
+                    .ofNullable(defaultValue)
+                        .orElse(handleError(String.format("No state for context %s, property %s found", contextName, property)))
+                );
         } else {
-            return getList(contextName, list);
+            return getList(contextName, list)
+                .orElseGet(() ->
+                Optional
+                    .ofNullable(defaultValue)
+                    .orElse(handleError(String.format("No state for context %s, list %s found", contextName, list)))
+            );
+
         }
     }
 
-    private Object getProperty(String contextName, String property) {
+    private Optional<Object> getProperty(String contextName, String property) {
         return contextManager.getContext(contextName)
             .map(context -> {
-                    if ("updateCount".equals(property)) {
+                    if ("updateCount" .equals(property)) {
                         return context.getUpdateCount();
-                    } else if ("listSize".equals(property)) {
+                    } else if ("listSize" .equals(property)) {
                         return context.getList().size();
                     } else {
                         return context.getProperties().get(property);
                     }
                 }
-            ).orElse(handleError(String.format("No state for context %s, property %s found", contextName, property)));
+            );
     }
-    private Object getList(String contextName, String list) {
+
+    private Optional<Object> getList(String contextName, String list) {
         return contextManager.getContext(contextName)
-            .map(context -> JsonPath.read(context.getList(), list))
-            .orElse(handleError(String.format("No state for context %s, list %s found", contextName, list)));
+            .flatMap(context -> {
+                try {
+                    return Optional.of(JsonPath.read(context.getList(), list));
+                } catch (PathNotFoundException e) {
+                    notifier().info("Path query failed: " + e.getMessage());
+                    return Optional.empty();
+                }
+            });
     }
 }

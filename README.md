@@ -654,6 +654,7 @@ The handler has the following parameters:
     - getting the first state in the list: `list='[0].myProperty`
     - getting the last state in the list: `list='[-1].myProperty`
     - getting an element based on a path segment:: `list=(join '[' request.pathSegments.[1] '].myProperty' '')`
+- `default` (Optional): value to return in case the context or property wasn't found. Without a default value, an error message would be returned instead.
 
 You have to choose either `property` or `list` (otherwise, you will get a configuration error).
 
@@ -673,6 +674,8 @@ Example response with error:
   "lastName": "Doe"
 }
 ```
+
+To avoid errors, you can specify a `default` for the state helper: `"clientId": "{{state context=request.pathSegments.[1] property='firstname' default='John'}}",`
 
 # Debugging
 
