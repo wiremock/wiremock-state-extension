@@ -24,25 +24,19 @@ Adds support to transport state across different stubs.
 | `property` | A property of a `state`. A state can have multiple properties.                                                                                  |
 | `list`     | Next to the singularic state, a context can have a list of `states`. The list of `states` can be modified but `states` within the `list` can't. |
 
-```plantuml
-@startuml Data model
-!pragma layout smetana
+```mermaid
+classDiagram
+    direction LR
+    Store "1" *-- "*" Context
+    Context "1" *-- "1" State
+    Context "1" *-- "1" List
+    List "1" *-- "*" State
+    State "1" *-- "*" Property
+    class Property {
+        +String key
+        +String value
+    }
 
-class Store
-class Context
-class State
-class Property {
-  + String key
-  + String value
-}
-class List
-
-Store "1" *-> "*" Context
-Context "1" *-> "1" State
-Context "1" *-> "1" List
-List "1" *-> "*" State
-State "1" *-> Property
-@enduml
 ```
 
 ## Background
