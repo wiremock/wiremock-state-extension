@@ -12,7 +12,11 @@ import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.api.parallel.Execution;
 import org.wiremock.extensions.state.internal.ContextManager;
 
+import java.time.Duration;
+
 import static com.github.tomakehurst.wiremock.core.WireMockConfiguration.wireMockConfig;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.awaitility.Awaitility.await;
 import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
@@ -40,4 +44,11 @@ public class AbstractTestBase {
     void setupBase() {
         wm.resetAll();
     }
+
+    protected void assertContextNumUpdates(String context, int expected) {
+        await()
+            .pollInterval(Duration.ofMillis(10))
+            .atMost(Duration.ofSeconds(5)).untilAsserted(() -> assertThat(contextManager.numUpdates(context)).isEqualTo(expected));
+    }
+
 }

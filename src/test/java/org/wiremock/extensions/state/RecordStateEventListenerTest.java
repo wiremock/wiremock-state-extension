@@ -253,9 +253,7 @@ class RecordStateEventListenerTest extends AbstractTestBase {
 
             postRequest("state", context, "one");
 
-            await()
-                .pollInterval(Duration.ofMillis(10))
-                .atMost(Duration.ofSeconds(2)).untilAsserted(() -> assertThat(contextManager.numUpdates(context)).isEqualTo(1));
+            assertContextNumUpdates(context, 1);
         }
 
         @Test
@@ -266,9 +264,7 @@ class RecordStateEventListenerTest extends AbstractTestBase {
             postRequest("state", context, "one");
             postRequest("state", context, "one");
 
-            await()
-                .pollInterval(Duration.ofMillis(10))
-                .atMost(Duration.ofSeconds(2)).untilAsserted(() -> assertThat(contextManager.numUpdates(context)).isEqualTo(3));
+            assertContextNumUpdates(context, 3);
         }
 
         @Test
@@ -280,12 +276,8 @@ class RecordStateEventListenerTest extends AbstractTestBase {
             postRequest("state", contextTwo, "one");
             postRequest("state", contextOne, "one");
 
-            await()
-                .pollInterval(Duration.ofMillis(10))
-                .atMost(Duration.ofSeconds(2)).untilAsserted(() -> assertThat(contextManager.numUpdates(contextOne)).isEqualTo(2));
-            await()
-                .pollInterval(Duration.ofMillis(10))
-                .atMost(Duration.ofSeconds(2)).untilAsserted(() -> assertThat(contextManager.numUpdates(contextTwo)).isEqualTo(1));
+            assertContextNumUpdates(contextOne, 2);
+            assertContextNumUpdates(contextTwo, 1);
         }
 
     }

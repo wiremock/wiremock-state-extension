@@ -340,8 +340,11 @@ class DeleteStateEventListenerTest extends AbstractTestBase {
             var contextName = RandomStringUtils.randomAlphabetic(5);
 
             postRequest("list", contextName, "one");
+            assertContextNumUpdates(contextName, 1);
             postRequest("list", contextName, "two");
+            assertContextNumUpdates(contextName, 2);
             postRequest("list", contextName, "three");
+            assertContextNumUpdates(contextName, 3);
             assertList(contextName, list -> assertThat(list).hasSize(3));
 
             getRequest("list/deleteIndex/1", contextName);
@@ -360,8 +363,11 @@ class DeleteStateEventListenerTest extends AbstractTestBase {
             var contextName = RandomStringUtils.randomAlphabetic(5);
 
             postRequest("list", contextName, "one");
+            assertContextNumUpdates(contextName, 1);
             postRequest("list", contextName, "two");
+            assertContextNumUpdates(contextName, 2);
             postRequest("list", contextName, "three");
+            assertContextNumUpdates(contextName, 3);
             assertList(contextName, list -> assertThat(list).hasSize(3));
 
             getRequest("list/deleteIndex/2", contextName);
@@ -380,8 +386,11 @@ class DeleteStateEventListenerTest extends AbstractTestBase {
             var contextName = RandomStringUtils.randomAlphabetic(5);
 
             postRequest("list", contextName, "one");
+            assertContextNumUpdates(contextName, 1);
             postRequest("list", contextName, "two");
+            assertContextNumUpdates(contextName, 2);
             postRequest("list", contextName, "three");
+            assertContextNumUpdates(contextName, 3);
             assertList(contextName, list -> assertThat(list).hasSize(3));
 
             getRequest("list/deleteWhere/two", contextName);
@@ -400,8 +409,11 @@ class DeleteStateEventListenerTest extends AbstractTestBase {
             var contextName = RandomStringUtils.randomAlphabetic(5);
 
             postRequest("list", contextName, "one");
+            assertContextNumUpdates(contextName, 1);
             postRequest("list", contextName, "two");
+            assertContextNumUpdates(contextName, 2);
             postRequest("list", contextName, "three");
+            assertContextNumUpdates(contextName, 3);
             assertList(contextName, list -> assertThat(list).hasSize(3));
 
             getRequest("list/deleteWhere/three", contextName);
