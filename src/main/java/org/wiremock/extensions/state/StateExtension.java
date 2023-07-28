@@ -49,21 +49,28 @@ import java.util.List;
  */
 public class StateExtension implements ExtensionFactory {
 
-    private final TemplateEngine templateEngine = new TemplateEngine(Collections.emptyMap(), null, Collections.emptySet(), false);
-
-    private final ContextManager contextManager;
+    private final StateTemplateHelperProviderExtension stateTemplateHelperProviderExtension;
+    private final RecordStateEventListener recordStateEventListener;
+    private final DeleteStateEventListener deleteStateEventListener;
+    private final StateRequestMatcher stateRequestMatcher;
 
     public StateExtension(Store<String, Object> store) {
-        this.contextManager = new ContextManager(store);
+        var contextManager = new ContextManager(store);
+        this.stateTemplateHelperProviderExtension = new StateTemplateHelperProviderExtension(contextManager);
+        var templateEngine = new TemplateEngine(stateTemplateHelperProviderExtension.provideTemplateHelpers(), null, Collections.emptySet(), false);
+
+        this.recordStateEventListener = new RecordStateEventListener(contextManager, templateEngine);
+        this.deleteStateEventListener = new DeleteStateEventListener(contextManager, templateEngine);
+        this.stateRequestMatcher = new StateRequestMatcher(contextManager, templateEngine);
     }
 
     @Override
     public List<Extension> create(WireMockServices services) {
         return List.of(
-            new RecordStateEventListener(contextManager, templateEngine),
-            new DeleteStateEventListener(contextManager, templateEngine),
-            new StateRequestMatcher(contextManager, templateEngine),
-            new StateTemplateHelperProviderExtension(contextManager)
+            recordStateEventListener,
+            deleteStateEventListener,
+            stateRequestMatcher,
+            stateTemplateHelperProviderExtension
         );
     }
 }

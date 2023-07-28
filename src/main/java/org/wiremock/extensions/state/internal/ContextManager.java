@@ -36,9 +36,15 @@ public class ContextManager {
         }
     }
 
+    /**
+     * Searches for the context by the given name.
+     *
+     * @param contextName The context name to search for.
+     * @return Optional with a copy of the context - or empty.
+     */
     public Optional<Context> getContext(String contextName) {
         synchronized (store) {
-            return store.get(contextName).map(it -> (Context) it);
+            return store.get(contextName).map(it -> (Context) it).map(Context::new);
         }
     }
 
