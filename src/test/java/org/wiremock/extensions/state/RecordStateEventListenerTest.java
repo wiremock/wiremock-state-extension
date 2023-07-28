@@ -204,8 +204,10 @@ class RecordStateEventListenerTest extends AbstractTestBase {
             var contextName = RandomStringUtils.randomAlphabetic(5);
 
             postRequest("list", contextName, "one");
+            await()
+                .pollInterval(Duration.ofMillis(10))
+                .atMost(Duration.ofSeconds(5)).untilAsserted(() -> assertThat(contextManager.numUpdates("last-" + contextName)).isEqualTo(1));
             postRequest("list", contextName, "two");
-
             await()
                 .pollInterval(Duration.ofMillis(10))
                 .atMost(Duration.ofSeconds(5)).untilAsserted(() -> assertThat(contextManager.numUpdates("last-" + contextName)).isEqualTo(2));
