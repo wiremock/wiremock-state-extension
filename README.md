@@ -1,4 +1,4 @@
-# Wiremock State extension
+# WireMock State extension
 
 Adds support to transport state across different stubs.
 
@@ -238,7 +238,23 @@ storing any data.
 The standalone jar can be downloaded from [GitHub](https://github.com/wiremock/wiremock-extension-state/packages/1902576) .
 
 ```bash
-java -cp "wiremock-state-extension-standalone-0.0.4.jar:wiremock-standalone-3.0.0-beta-11.jar" wiremock.Run
+java -cp "wiremock-state-extension-standalone-0.0.5.jar:wiremock-standalone-3.0.0-beta-11.jar" wiremock.Run
+```
+
+### Docker
+
+Using the extension with docker is similar to its usage with usage [standalone](#standalone): it just has to be available on 
+the classpath to be loaded automatically - it does not have to be added via `--extensions` .
+
+**Note:** This extension depends on the current WireMock beta development, thus the tag `3x` has to be used:
+
+
+```bash
+docker run -it --rm \
+-p 8080:8080 \
+--name wiremock \
+-v $PWD/extensions:/var/wiremock/extensions \
+wiremock/wiremock:3x
 ```
 
 ## Record a state
