@@ -1,4 +1,4 @@
-package org.wiremock.extensions.state;
+package org.wiremock.extensions.state.examples;
 
 import com.github.tomakehurst.wiremock.WireMockServer;
 import com.github.tomakehurst.wiremock.client.WireMock;
@@ -15,9 +15,10 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
+import org.wiremock.extensions.state.CaffeineStore;
+import org.wiremock.extensions.state.StateExtension;
 import org.wiremock.extensions.state.internal.ContextManager;
 
-import java.io.File;
 import java.net.URI;
 import java.time.Duration;
 import java.util.Locale;
@@ -30,20 +31,20 @@ import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 
+/**
+ * Sample test to demonstrate remote loading of stub mapping with this extension.
+ */
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 @Execution(SAME_THREAD)
-public class IntegrationTest {
+public class StubMappingLoadingExampleTest {
 
-    static WireMockServer wireMockServer;
-    static WireMock wmClient;
-    static Stubbing wm;
-
+    private static WireMockServer wireMockServer;
     private static final Store<String, Object> store = new CaffeineStore();
     static final ContextManager contextManager = new ContextManager(store);
 
 
     @BeforeAll
-    public static void initWithTempDir() throws Exception {
+    public static void initWithTempDir() {
         WireMockConfiguration options = wireMockConfig().withRootDirectory(Resources.getResource("remoteloader").getPath())
                 .templatingEnabled(true).globalTemplating(true)
                 .extensions(new StateExtension(store));
@@ -56,10 +57,10 @@ public class IntegrationTest {
         wireMockServer = new WireMockServer(options);
         wireMockServer.start();
         WireMock.configureFor(wireMockServer.port());
-        wm = wireMockServer;
+        Stubbing wm = wireMockServer;
 
         Locale.setDefault(Locale.ENGLISH);
-        wmClient = WireMock.create().port(wireMockServer.port()).build();
+        WireMock.create().port(wireMockServer.port()).build();
     }
 
     @Test
