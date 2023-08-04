@@ -28,7 +28,6 @@ import org.wiremock.extensions.state.internal.DeleteStateParameters;
 import org.wiremock.extensions.state.internal.ResponseTemplateModel;
 import org.wiremock.extensions.state.internal.StateExtensionMixin;
 
-import java.util.LinkedList;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -61,7 +60,7 @@ public class DeleteStateEventListener implements ServeEventListener, StateExtens
         return false;
     }
 
-    public void afterComplete(ServeEvent serveEvent, Parameters parameters) {
+    public void beforeResponseSent(ServeEvent serveEvent, Parameters parameters) {
         var model = Map.of(
             "request", RequestTemplateModel.from(serveEvent.getRequest()),
             "response", ResponseTemplateModel.from(serveEvent.getResponse())
@@ -76,9 +75,13 @@ public class DeleteStateEventListener implements ServeEventListener, StateExtens
 
     private void handleListDeletion(DeleteStateParameters.ListParameters listConfig, String contextName, Map<String, Object> model) {
         if (Boolean.TRUE.equals(listConfig.getDeleteFirst())) {
-            contextManager.createOrUpdateContextList(contextName, LinkedList::removeFirst);
+            contextManager.createOrUpdateContextList(contextName, maps -> {
+                if (!maps.isEmpty()) maps.removeFirst();
+            });
         } else if (Boolean.TRUE.equals(listConfig.getDeleteLast())) {
-            contextManager.createOrUpdateContextList(contextName, LinkedList::removeLast);
+            contextManager.createOrUpdateContextList(contextName, maps -> {
+                if (!maps.isEmpty()) maps.removeLast();
+            });
         } else if (StringUtils.isNotBlank(listConfig.getDeleteIndex())) {
             try {
                 var index = Integer.parseInt(renderTemplate(model, listConfig.getDeleteIndex()));
