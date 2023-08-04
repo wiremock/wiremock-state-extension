@@ -1,0 +1,72 @@
+{
+  "mappings": [
+    {
+      "request": {
+        "method": "POST",
+        "bodyPatterns": [
+          {
+            "enablePlaceholders": true,
+            "equalToXml": "<items><item>${xmlunit.ignore}<\/item><\/items>"
+          }
+        ],
+        "url": "/dynamic/process"
+      },
+      "response": {
+        "status": 201
+      },
+      "serveEventListeners": [
+        {
+          "name": "recordState",
+          "parameters": {
+            "context": "dynamic-process-{{xPath request.body '//items/item/text()'}}",
+            "state": {
+              "id": "{{xPath request.body '//items/item/text()'}}"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "request": {
+        "method": "GET",
+        "urlPattern": "/dynamic/process/[^\/]++",
+        "customMatcher": {
+          "name": "state-matcher",
+          "parameters": {
+            "hasContext": "dynamic-process-{{request.pathSegments.[2]}}"
+          }
+        }
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "bodyFileName": "dynamic-json-body.json"
+      }
+    },
+    {
+      "request": {
+        "method": "DELETE",
+        "urlPattern": "/dynamic/process/[^\/]++",
+        "customMatcher": {
+          "name": "state-matcher",
+          "parameters": {
+            "hasContext": "dynamic-process-{{request.pathSegments.[2]}}"
+          }
+        }
+      },
+      "response": {
+        "status": 200
+      },
+      "serveEventListeners": [
+        {
+          "name": "deleteState",
+          "parameters": {
+            "context": "dynamic-process-{{request.pathSegments.[2]}}"
+          }
+        }
+      ]
+    }
+  ]
+}

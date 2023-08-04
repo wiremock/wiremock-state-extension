@@ -1,0 +1,149 @@
+{
+  "mappings": [
+    {
+      "request": {
+        "method": "GET",
+        "urlPattern": "/queue/[^\/]++",
+        "customMatcher": {
+          "name": "state-matcher",
+          "parameters": {
+            "hasNotContext": "queue-{{request.pathSegments.[1]}}"
+          }
+        }
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "jsonBody": {
+          "item": "no data"
+        }
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "urlPattern": "/queue/[^\/]++",
+        "customMatcher": {
+          "name": "state-matcher",
+          "parameters": {
+            "hasContext": "queue-{{request.pathSegments.[1]}}",
+            "listSizeEqualTo": "0"
+          }
+        }
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "jsonBody": {
+          "item": "no data"
+        }
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "urlPattern": "/queue/[^\/]++/[^\/]++"
+      },
+      "response": {
+        "status": 200
+      },
+      "serveEventListeners": [
+        {
+          "name": "recordState",
+          "parameters": {
+            "context": "queue-{{request.pathSegments.[1]}}",
+            "list": {
+              "addFirst": {
+                "id": "{{request.pathSegments.[2]}}"
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "request": {
+        "method": "GET",
+        "urlPattern": "/queue/[^\/]++",
+        "customMatcher": {
+          "name": "state-matcher",
+          "parameters": {
+            "hasContext": "queue-{{request.pathSegments.[1]}}",
+            "listSizeMoreThan": "0"
+          }
+        }
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "jsonBody": {
+          "item": "{{state context=(join 'queue' request.pathSegments.[1] '-') list='[-1].id'}}"
+        }
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "urlPattern": "/queue/[^\/]++/ack",
+        "customMatcher": {
+          "name": "state-matcher",
+          "parameters": {
+            "hasNotContext": "queue-{{request.pathSegments.[1]}}"
+          }
+        }
+      },
+      "response": {
+        "status": 500
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "urlPattern": "/queue/[^\/]++/ack",
+        "customMatcher": {
+          "name": "state-matcher",
+          "parameters": {
+            "hasContext": "queue-{{request.pathSegments.[1]}}",
+            "listSizeEqualTo": "0"
+          }
+        }
+      },
+      "response": {
+        "status": 500
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "urlPattern": "/queue/[^\/]++/ack",
+        "customMatcher": {
+          "name": "state-matcher",
+          "parameters": {
+            "hasContext": "queue-{{request.pathSegments.[1]}}",
+            "listSizeMoreThan": "0"
+          }
+        }
+      },
+      "response": {
+        "status": 200
+      },
+      "serveEventListeners": [
+        {
+          "name": "deleteState",
+          "parameters": {
+            "context": "queue-{{request.pathSegments.[1]}}",
+            "list": {
+              "deleteLast": true
+            }
+          }
+        }
+      ]
+    }
+  ]
+}
