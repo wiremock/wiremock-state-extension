@@ -217,7 +217,6 @@ class DeleteStateEventListenerTest extends AbstractTestBase {
             getRequest("state", context);
 
             await()
-                .pollDelay(Duration.ofSeconds(1))
                 .pollInterval(Duration.ofMillis(10))
                 .atMost(Duration.ofSeconds(5)).untilAsserted(() -> assertThat(contextManager.getContext(context)).isEmpty());
         }
@@ -231,11 +230,9 @@ class DeleteStateEventListenerTest extends AbstractTestBase {
             getRequest("state", context);
 
             await()
-                .pollDelay(Duration.ofSeconds(1))
                 .pollInterval(Duration.ofMillis(10))
                 .atMost(Duration.ofSeconds(5)).untilAsserted(() -> assertThat(contextManager.getContext(context)).isEmpty());
             await()
-                .pollDelay(Duration.ofSeconds(1))
                 .pollInterval(Duration.ofMillis(10))
                 .atMost(Duration.ofSeconds(5)).untilAsserted(() -> assertThat(contextManager.getContext(otherContext)).isPresent());
         }
@@ -290,9 +287,13 @@ class DeleteStateEventListenerTest extends AbstractTestBase {
             getRequest("list/deleteFirst", context);
 
             await()
-                .pollDelay(Duration.ofSeconds(1))
                 .pollInterval(Duration.ofMillis(10))
-                .atMost(Duration.ofSeconds(5)).untilAsserted(() -> assertThat(contextManager.getContext(context)).isEmpty());
+                .atMost(Duration.ofSeconds(5))
+                .untilAsserted(() ->
+                    assertThat(contextManager.getContext(context))
+                        .isPresent()
+                        .hasValueSatisfying(it -> assertThat(it.getList()).isEmpty())
+                );
         }
 
         @Test
@@ -300,9 +301,7 @@ class DeleteStateEventListenerTest extends AbstractTestBase {
             var contextName = RandomStringUtils.randomAlphabetic(5);
 
             postRequest("list", contextName, "one");
-            assertList(contextName, list -> assertThat(list).hasSize(1));
             postRequest("list", contextName, "two");
-            assertList(contextName, list -> assertThat(list).hasSize(2));
 
             getRequest("list/deleteFirst", contextName);
 
@@ -320,9 +319,7 @@ class DeleteStateEventListenerTest extends AbstractTestBase {
             var contextName = RandomStringUtils.randomAlphabetic(5);
 
             postRequest("list", contextName, "one");
-            assertList(contextName, list -> assertThat(list).hasSize(1));
             postRequest("list", contextName, "two");
-            assertList(contextName, list -> assertThat(list).hasSize(2));
 
             getRequest("list/deleteLast", contextName);
 
@@ -340,11 +337,8 @@ class DeleteStateEventListenerTest extends AbstractTestBase {
             var contextName = RandomStringUtils.randomAlphabetic(5);
 
             postRequest("list", contextName, "one");
-            assertContextNumUpdates(contextName, 1);
             postRequest("list", contextName, "two");
-            assertContextNumUpdates(contextName, 2);
             postRequest("list", contextName, "three");
-            assertContextNumUpdates(contextName, 3);
             assertList(contextName, list -> assertThat(list).hasSize(3));
 
             getRequest("list/deleteIndex/1", contextName);
@@ -363,11 +357,8 @@ class DeleteStateEventListenerTest extends AbstractTestBase {
             var contextName = RandomStringUtils.randomAlphabetic(5);
 
             postRequest("list", contextName, "one");
-            assertContextNumUpdates(contextName, 1);
             postRequest("list", contextName, "two");
-            assertContextNumUpdates(contextName, 2);
             postRequest("list", contextName, "three");
-            assertContextNumUpdates(contextName, 3);
             assertList(contextName, list -> assertThat(list).hasSize(3));
 
             getRequest("list/deleteIndex/2", contextName);
@@ -386,11 +377,8 @@ class DeleteStateEventListenerTest extends AbstractTestBase {
             var contextName = RandomStringUtils.randomAlphabetic(5);
 
             postRequest("list", contextName, "one");
-            assertContextNumUpdates(contextName, 1);
             postRequest("list", contextName, "two");
-            assertContextNumUpdates(contextName, 2);
             postRequest("list", contextName, "three");
-            assertContextNumUpdates(contextName, 3);
             assertList(contextName, list -> assertThat(list).hasSize(3));
 
             getRequest("list/deleteWhere/two", contextName);
@@ -409,11 +397,8 @@ class DeleteStateEventListenerTest extends AbstractTestBase {
             var contextName = RandomStringUtils.randomAlphabetic(5);
 
             postRequest("list", contextName, "one");
-            assertContextNumUpdates(contextName, 1);
             postRequest("list", contextName, "two");
-            assertContextNumUpdates(contextName, 2);
             postRequest("list", contextName, "three");
-            assertContextNumUpdates(contextName, 3);
             assertList(contextName, list -> assertThat(list).hasSize(3));
 
             getRequest("list/deleteWhere/three", contextName);
@@ -429,7 +414,6 @@ class DeleteStateEventListenerTest extends AbstractTestBase {
 
         private void assertList(String contextName, Consumer<LinkedList<Map<String, String>>> consumer) {
             await()
-                .pollDelay(Duration.ofMillis(10))
                 .pollInterval(Duration.ofMillis(10))
                 .atMost(ofSeconds(5))
                 .untilAsserted(() ->

@@ -49,7 +49,7 @@ public class RecordStateEventListener implements ServeEventListener, StateExtens
         this.templateEngine = templateEngine;
     }
 
-    public void afterComplete(ServeEvent serveEvent, Parameters parameters) {
+    public void beforeResponseSent(ServeEvent serveEvent, Parameters parameters) {
         var model = Map.of(
             "request", RequestTemplateModel.from(serveEvent.getRequest()),
             "response", ResponseTemplateModel.from(serveEvent.getResponse())
