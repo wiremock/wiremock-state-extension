@@ -1,4 +1,4 @@
-package org.wiremock.extensions.state;
+package org.wiremock.extensions.state.functionality;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.tomakehurst.wiremock.common.ConsoleNotifier;
@@ -10,6 +10,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.api.parallel.Execution;
+import org.wiremock.extensions.state.CaffeineStore;
+import org.wiremock.extensions.state.StateExtension;
 import org.wiremock.extensions.state.internal.ContextManager;
 
 import java.time.Duration;

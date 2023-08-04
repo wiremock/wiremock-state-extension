@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.wiremock.extensions.state;
+package org.wiremock.extensions.state.examples;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -32,6 +32,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.api.parallel.Execution;
+import org.wiremock.extensions.state.CaffeineStore;
+import org.wiremock.extensions.state.StateExtension;
 
 import java.net.URI;
 import java.util.Map;
@@ -44,6 +46,9 @@ import static io.restassured.RestAssured.given;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 
+/**
+ * Sample test for creating a mock for a queue with java.
+ */
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 @Execution(SAME_THREAD)
 class StateExtensionListExampleTest {
