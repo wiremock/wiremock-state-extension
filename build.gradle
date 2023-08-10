@@ -25,7 +25,7 @@ project.ext {
     baseArtifact = 'wiremock-state-extension'
     versions = [
             wiremock  : '3.0.0-beta-14',
-            caffeine  : '3.1.7',
+            caffeine  : '3.1.8',
             handlebars: '4.3.1',
             junit     : '5.10.0',
             assertj   : '3.24.2',
