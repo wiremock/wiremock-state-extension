@@ -1,5 +1,11 @@
 # WireMock State extension
 
+<p align="center">
+    <a href="https://wiremock.org" target="_blank">
+        <img width="512px" src="https://wiremock.org/images/logos/wiremock/logo_wide.svg" alt="WireMock Logo"/>
+    </a>
+</p>
+
 Adds support to transport state across different stubs.
 
 ## Feature summary
@@ -701,6 +707,8 @@ The handler has the following parameters:
     - `property='updateCount` retrieves the number of updates to a certain state.
       The number matches the one described in [Context update count match](#context-update-count-match)
     - `property='listSize` retrieves the number of entries of `list`
+    - `property='list` get the whole list as array, e.g. to use it with [handlebars #each](https://handlebarsjs.com/guide/builtin-helpers.html#each)
+      - this property always has a default value (empty list), which can be overwritten with a JSON list
 - `list`: Getting an entry of the context's `list`, identified via a JSON path. Examples:
     - getting the first state in the list: `list='[0].myProperty`
     - getting the last state in the list: `list='[-1].myProperty`
@@ -709,10 +717,41 @@ The handler has the following parameters:
 
 You have to choose either `property` or `list` (otherwise, you will get a configuration error).
 
-To retrieve a full body, use: `{{{state context=request.pathSegments.[1] property='fullBody'}}}` .
+To retrieve a full body, use tripple braces: `{{{state context=request.pathSegments.[1] property='fullBody'}}}` .
 
 When registering this extension, this helper is available via  WireMock's [response templating](https://wiremock.org/3.x/docs/response-templating/) as well as 
 in all configuration options of this extension.
+
+### List operations
+
+You can use [handlebars #each](https://handlebarsjs.com/guide/builtin-helpers.html#each) to build a full JSON response with the current list's content.
+
+Things to consider:
+
+- this syntax only works with `body`. It DOES NOT work with `jsonBody`
+  - as this might get ugly, consider using `bodyFileName` / `withBodyFile()` have proper indentation
+- the default response for non-existant context as well as non-existant list in a context is an empty list. These states cannot be differentiated here
+  - if you still want a different response, consider using a [StateRequestMatcher](#negative-context-exists-match)
+- the default value for this property has to be a valid JSON list - otherwise you will get an error log and the empty list response
+- JSON does not allow trailing commas, so in order to create a valid JSON list, use `{{#unless @last}},{{/unless}` before `{{/each}}`
+
+
+Example:
+```json
+{
+  "request" : {
+    "urlPathPattern" : "/listing",
+    "method" : "GET"
+  },
+  "response" : {
+    "status" : 200,
+    "body" : "[\n{{# each (state context=list property='list' default='[]') }}  {\n    \"id\": \"{{id}}\",\n    \"firstName\": \"{{firstName}}\",\n    \"firstName\": \"{{firstName}}\"  }{{#unless @last}},{{/unless}}\n{{/each}}]",
+    "headers" : {
+      "content-type" : "application/json"
+    }
+  }
+}
+```
 
 ### Error handling
 

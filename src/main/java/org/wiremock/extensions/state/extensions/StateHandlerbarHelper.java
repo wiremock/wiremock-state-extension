@@ -16,13 +16,19 @@
 package org.wiremock.extensions.state.extensions;
 
 import com.github.jknack.handlebars.Options;
+import com.github.tomakehurst.wiremock.common.Json;
+import com.github.tomakehurst.wiremock.common.JsonException;
 import com.github.tomakehurst.wiremock.extension.responsetemplating.helpers.HandlebarsHelper;
 import com.jayway.jsonpath.JsonPath;
 import com.jayway.jsonpath.PathNotFoundException;
 import org.apache.commons.lang3.StringUtils;
+import org.wiremock.extensions.state.internal.Context;
 import org.wiremock.extensions.state.internal.ContextManager;
 
+import java.util.ArrayList;
 import java.util.Optional;
+import java.util.function.Function;
+import java.util.stream.Stream;
 
 import static com.github.tomakehurst.wiremock.common.LocalNotifier.notifier;
 
@@ -57,35 +63,36 @@ public class StateHandlerbarHelper extends HandlebarsHelper<Object> {
             return handleError("Either 'property' or 'list' has to be set");
         }
         if (StringUtils.isNotBlank(property)) {
-            return getProperty(contextName, property)
-                .orElseGet(() ->
-                    Optional
-                    .ofNullable(defaultValue)
-                        .orElseGet(() -> handleError(String.format("No state for context %s, property %s found", contextName, property)))
-                );
+            return getProperty(contextName, property, defaultValue)
+                .orElseGet(() -> handleError(String.format("No state for context %s, property %s found", contextName, property)));
         } else {
             return getList(contextName, list)
                 .orElseGet(() ->
-                Optional
-                    .ofNullable(defaultValue)
-                    .orElseGet(() -> handleError(String.format("No state for context %s, list %s found", contextName, list)))
-            );
+                    Optional.ofNullable(defaultValue)
+                        .orElseGet(() -> handleError(String.format("No state for context %s, list %s found", contextName, list)))
+                );
 
         }
     }
 
-    private Optional<Object> getProperty(String contextName, String property) {
+    private Optional<Object> getProperty(String contextName, String property, String defaultValue) {
         return contextManager.getContext(contextName)
-            .map(context -> {
-                    if ("updateCount" .equals(property)) {
-                        return context.getUpdateCount();
-                    } else if ("listSize" .equals(property)) {
-                        return context.getList().size();
-                    } else {
-                        return context.getProperties().get(property);
-                    }
-                }
-            );
+            .map(context ->
+                Stream.of(SpecialProperties.values())
+                    .filter(it -> it.name().equals(property))
+                    .findFirst()
+                    .map(it -> it.getFromContext(context))
+                    .orElseGet(() -> context.getProperties().get(property))
+            )
+            .or(() -> convertToPropertySpecificDefault(property, defaultValue));
+    }
+
+    private Optional<Object> convertToPropertySpecificDefault(String property, String defaultValue) {
+        return Stream.of(SpecialProperties.values())
+            .filter(it -> it.name().equals(property))
+            .findFirst()
+            .map(it -> it.convertDefaultValue(defaultValue))
+            .or(() -> Optional.ofNullable(defaultValue));
     }
 
     private Optional<Object> getList(String contextName, String list) {
@@ -99,4 +106,41 @@ public class StateHandlerbarHelper extends HandlebarsHelper<Object> {
                 }
             });
     }
+
+    private enum SpecialProperties {
+        updateCount(Context::getUpdateCount, it -> it),
+        listSize((context) -> context.getList().size(), it -> it),
+        @SuppressWarnings("rawtypes") list(
+            Context::getList,
+            (defaultValue) -> Optional.ofNullable(defaultValue)
+                .map(it -> {
+                    try {
+                        return Json.read(it, ArrayList.class);
+                    } catch (JsonException ex) {
+                        notifier().error("default for list property is not a JSON list - fallback to empty list: " + defaultValue);
+                        return null;
+                    }
+                })
+                .or(() -> Optional.of(new ArrayList()))
+                .map(it -> (Object) it)
+                .get()
+        );
+
+        private final Function<Context, Object> contextExtractor;
+        private final Function<String, Object> defaultConverter;
+
+        SpecialProperties(Function<Context, Object> contextExtractor, Function<String, Object> defaultConverter) {
+            this.contextExtractor = contextExtractor;
+            this.defaultConverter = defaultConverter;
+        }
+
+        public Object getFromContext(Context context) {
+            return contextExtractor.apply(context);
+        }
+
+        public Object convertDefaultValue(String defaultValue) {
+            return defaultConverter.apply(defaultValue);
+        }
+    }
+
 }
