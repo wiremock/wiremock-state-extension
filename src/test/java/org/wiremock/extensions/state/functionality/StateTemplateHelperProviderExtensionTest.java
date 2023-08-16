@@ -20,8 +20,11 @@ import com.github.tomakehurst.wiremock.client.WireMock;
 import com.github.tomakehurst.wiremock.common.Json;
 import com.github.tomakehurst.wiremock.extension.Parameters;
 import io.restassured.http.ContentType;
+import io.restassured.response.ValidatableResponse;
+import org.apache.commons.lang3.NotImplementedException;
 import org.apache.commons.lang3.RandomStringUtils;
 import org.apache.http.HttpStatus;
+import org.hamcrest.Matchers;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -36,6 +39,7 @@ import static com.github.tomakehurst.wiremock.client.WireMock.urlEqualTo;
 import static com.github.tomakehurst.wiremock.client.WireMock.urlPathMatching;
 import static io.restassured.RestAssured.given;
 import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.Matchers.nullValue;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
@@ -126,109 +130,6 @@ class StateTemplateHelperProviderExtensionTest extends AbstractTestBase {
         );
     }
 
-    @Nested
-    public class Property {
-
-        @BeforeEach
-        void setup() {
-            createPostStub();
-            createGetStub();
-        }
-
-        @Test
-        void test_returnsStateFromPreviousRequest_ok() {
-            var contextValue = RandomStringUtils.randomAlphabetic(5);
-
-            postAndAssertContextValue("state", contextValue, "one");
-            getAndAssertContextValue("state", contextValue, contextValue, "one", "0");
-        }
-
-        @Test
-        void test_defaults_returnsStateFromPreviousRequest_ok() {
-            var contextValue = RandomStringUtils.randomAlphabetic(5);
-
-            postAndAssertContextValue("state", contextValue, "one");
-            getAndAssertContextValue("state/default", contextValue, contextValue, "one", "0");
-        }
-
-        @Test
-        void test_returnsFullBodyFromPreviousRequest_ok() {
-            var contextValue = RandomStringUtils.randomAlphabetic(5);
-
-            postAndAssertContextValue("state", contextValue, "one");
-            getAndAssertFullBody(contextValue);
-        }
-
-        @Test
-        void test_differentStatesSupported_ok() {
-            var contextValueOne = RandomStringUtils.randomAlphabetic(5);
-            var contextValueTwo = RandomStringUtils.randomAlphabetic(5);
-
-            postAndAssertContextValue("state", contextValueOne, "one");
-            postAndAssertContextValue("state", contextValueTwo, "one");
-            getAndAssertContextValue("state", contextValueOne, contextValueOne, "one", "0");
-            getAndAssertContextValue("state", contextValueTwo, contextValueTwo, "one", "0");
-        }
-
-
-    }
-    @Nested
-    public class List {
-        @BeforeEach
-        void setup() {
-            createPostStub();
-            createGetStub();
-        }
-
-        @Test
-        void test_returnsListElement_oneItem_ok() {
-            var contextValue = RandomStringUtils.randomAlphabetic(5);
-
-            postAndAssertContextValue("list", contextValue, "one");
-
-            getAndAssertContextValue("list/0", contextValue, contextValue, "one", "1");
-        }
-
-        @Test
-        void test_defaults_knownItem_ok() {
-            var contextValue = RandomStringUtils.randomAlphabetic(5);
-
-            postAndAssertContextValue("list", contextValue, "one");
-
-            getAndAssertContextValue("list/default/0", contextValue, contextValue, "one", "1");
-        }
-
-        @Test
-        void test_defaults_unknownItem_ok() {
-            var contextValue = RandomStringUtils.randomAlphabetic(5);
-
-            postAndAssertContextValue("list", contextValue, "one");
-
-            getAndAssertContextValue("list/default/1", contextValue, "defaultStateValueOne", "defaultStateValueTwo", "1");
-        }
-
-        @Test
-        void test_returnsListElement_multipleItems_ok() {
-            var contextValue = RandomStringUtils.randomAlphabetic(5);
-
-            postAndAssertContextValue("list", contextValue, "one");
-            postAndAssertContextValue("list", contextValue, "two");
-            postAndAssertContextValue("list", contextValue, "three");
-
-            getAndAssertContextValue("list/1", contextValue, contextValue, "two", "3");
-        }
-        @Test
-        void test_returnsSingleListElement_lastItem_ok() {
-            var contextValue = RandomStringUtils.randomAlphabetic(5);
-
-            postAndAssertContextValue("list", contextValue, "one");
-            postAndAssertContextValue("list", contextValue, "two");
-            postAndAssertContextValue("list", contextValue, "three");
-
-            getAndAssertContextValue("list/-1", contextValue, contextValue, "three", "3");
-        }
-
-    }
     private void createGetStub() {
         wm.stubFor(
             get(urlPathMatching("/state/[^/]+"))
@@ -288,10 +189,44 @@ class StateTemplateHelperProviderExtensionTest extends AbstractTestBase {
                                         "valueOne", "{{state context=request.pathSegments.[2] list=(join '[' request.pathSegments.[1] '].stateValueOne' '')}}",
                                         "valueTwo", "{{state context=request.pathSegments.[2] list=(join '[' request.pathSegments.[1] '].stateValueTwo' '')}}",
                                         "listSize", "{{state context=request.pathSegments.[2] property='listSize'}}",
-                                        "unknown", "{{state context=request.pathSegments.[1] property='unknown' default='defaultUnknown'}}"
+                                        "unknown", "{{state context=request.pathSegments.[2] property='unknown' default='defaultUnknown'}}"
                                     )
                                 )
                             )
+                        )
+                )
+        );
+
+        wm.stubFor(
+            get(urlPathMatching("/list/allNoDefault/[^/]+"))
+                .willReturn(
+                    WireMock.ok()
+                        .withHeader("content-type", "application/json")
+                        .withBody(
+                            "[\n" +
+                                "{{# each (state context=request.pathSegments.[2] property='list') }}" +
+                                "  {\n" +
+                                "  }{{#unless @last}},{{/unless}}\n" +
+                                "{{/each}}" +
+                                "]"
+                        )
+                )
+        );
+
+        wm.stubFor(
+            get(urlPathMatching("/list/all/[^/]+"))
+                .willReturn(
+                    WireMock.ok()
+                        .withHeader("content-type", "application/json")
+                        .withBody(
+                            "[\n" +
+                                "{{#each (state context=request.pathSegments.[2] property='list' default='[{\"stateValueOne\": \"defaultValueOne\",\"stateValueTwo\": \"defaultValueTwo\"}]') }}" +
+                                "  {\n" +
+                                "    \"valueOne\": \"{{stateValueOne}}\",\n" +
+                                "    \"valueTwo\": \"{{stateValueTwo}}\"" +
+                                "  }{{#unless @last}},{{/unless}}\n" +
+                                "{{/each}}" +
+                                "]"
                         )
                 )
         );
@@ -381,16 +316,20 @@ class StateTemplateHelperProviderExtensionTest extends AbstractTestBase {
     }
 
     private void getAndAssertContextValue(String path, String context, String valueOne, String valueTwo, String listSize) {
-        given()
-            .accept(ContentType.JSON)
-            .get(assertDoesNotThrow(() -> new URI(String.format("%s/%s/%s", wm.getRuntimeInfo().getHttpBaseUrl(), path, context))))
-            .then()
-            .statusCode(HttpStatus.SC_OK)
+        getAndAssertOk(path, context)
             .body("valueOne", equalTo(valueOne))
             .body("valueTwo", equalTo(valueTwo))
             .body("listSize", equalTo(listSize))
             .body("unknown", equalTo("defaultUnknown"))
             .body("other", nullValue());
+    }
+
+    private ValidatableResponse getAndAssertOk(String path, String context) {
+        return given()
+            .accept(ContentType.JSON)
+            .get(assertDoesNotThrow(() -> new URI(String.format("%s/%s/%s", wm.getRuntimeInfo().getHttpBaseUrl(), path, context))))
+            .then()
+            .statusCode(HttpStatus.SC_OK);
     }
 
     private void getAndAssertFullBody(String contextValue) {
@@ -415,5 +354,145 @@ class StateTemplateHelperProviderExtensionTest extends AbstractTestBase {
             .post(assertDoesNotThrow(() -> new URI(wm.getRuntimeInfo().getHttpBaseUrl() + "/" + path)))
             .then()
             .statusCode(HttpStatus.SC_OK);
+    }
+
+    @Nested
+    public class Property {
+
+        @BeforeEach
+        void setup() {
+            createPostStub();
+            createGetStub();
+        }
+
+        @Test
+        void test_returnsStateFromPreviousRequest_ok() {
+            var contextValue = RandomStringUtils.randomAlphabetic(5);
+
+            postAndAssertContextValue("state", contextValue, "one");
+            getAndAssertContextValue("state", contextValue, contextValue, "one", "0");
+        }
+
+        @Test
+        void test_defaults_returnsStateFromPreviousRequest_ok() {
+            var contextValue = RandomStringUtils.randomAlphabetic(5);
+
+            postAndAssertContextValue("state", contextValue, "one");
+            getAndAssertContextValue("state/default", contextValue, contextValue, "one", "0");
+        }
+
+        @Test
+        void test_returnsFullBodyFromPreviousRequest_ok() {
+            var contextValue = RandomStringUtils.randomAlphabetic(5);
+
+            postAndAssertContextValue("state", contextValue, "one");
+            getAndAssertFullBody(contextValue);
+        }
+
+        @Test
+        void test_differentStatesSupported_ok() {
+            var contextValueOne = RandomStringUtils.randomAlphabetic(5);
+            var contextValueTwo = RandomStringUtils.randomAlphabetic(5);
+
+            postAndAssertContextValue("state", contextValueOne, "one");
+            postAndAssertContextValue("state", contextValueTwo, "one");
+            getAndAssertContextValue("state", contextValueOne, contextValueOne, "one", "0");
+            getAndAssertContextValue("state", contextValueTwo, contextValueTwo, "one", "0");
+        }
+
+
+    }
+
+    @Nested
+    public class List {
+
+        private final String contextValue = RandomStringUtils.randomAlphabetic(5);
+
+        @BeforeEach
+        void setup() {
+            createPostStub();
+            createGetStub();
+        }
+
+        @Test
+        void test_returnsListElement_oneItem_ok() {
+            postAndAssertContextValue("list", contextValue, "one");
+
+            getAndAssertContextValue("list/0", contextValue, contextValue, "one", "1");
+        }
+
+        @Test
+        void test_defaults_knownItem_ok() {
+            postAndAssertContextValue("list", contextValue, "one");
+
+            getAndAssertContextValue("list/default/0", contextValue, contextValue, "one", "1");
+        }
+
+        @Test
+        void test_defaults_unknownItem_ok() {
+            postAndAssertContextValue("list", contextValue, "one");
+
+            getAndAssertContextValue("list/default/1", contextValue, "defaultStateValueOne", "defaultStateValueTwo", "1");
+        }
+
+        @Test
+        void test_returnsListElement_multipleItems_ok() {
+            postAndAssertContextValue("list", contextValue, "one");
+            postAndAssertContextValue("list", contextValue, "two");
+            postAndAssertContextValue("list", contextValue, "three");
+
+            getAndAssertContextValue("list/1", contextValue, contextValue, "two", "3");
+        }
+
+        @Test
+        void test_returnsSingleListElement_lastItem_ok() {
+            postAndAssertContextValue("list", contextValue, "one");
+            postAndAssertContextValue("list", contextValue, "two");
+            postAndAssertContextValue("list", contextValue, "three");
+
+            getAndAssertContextValue("list/-1", contextValue, contextValue, "three", "3");
+        }
+
+        @Nested
+        public class CompleteList {
+            @Test
+            void test_returnsCompleteList_noContext_emptyList() {
+                getAndAssertOk("list/allNoDefault", contextValue)
+                    .body("$", Matchers.empty());
+            }
+
+            @Test
+            void test_returnsCompleteList_defaultFilled_ok() {
+                getAndAssertOk("list/all", contextValue)
+                    .body("$", hasSize(1))
+                    .body("[0].valueOne", equalTo("defaultValueOne"))
+                    .body("[0].valueTwo", equalTo("defaultValueTwo"));
+            }
+
+            @Test
+            void test_returnsCompleteList_emptyList_ok() {
+                postAndAssertContextValue("state", contextValue, "one");
+
+                getAndAssertContextValue("state", contextValue, contextValue, "one", "0");
+                getAndAssertOk("list/all", contextValue)
+                    .body("$", Matchers.empty());
+            }
+
+            @Test
+            void test_returnsCompleteList_entries_ok() {
+                postAndAssertContextValue("list", contextValue, "one");
+                postAndAssertContextValue("list", contextValue, "two");
+                postAndAssertContextValue("list", contextValue, "three");
+
+                getAndAssertOk("list/all", contextValue)
+                    .body("$", hasSize(3))
+                    .body("[0].valueOne", equalTo(contextValue))
+                    .body("[0].valueTwo", equalTo("one"))
+                    .body("[1].valueOne", equalTo(contextValue))
+                    .body("[1].valueTwo", equalTo("two"))
+                    .body("[2].valueOne", equalTo(contextValue))
+                    .body("[2].valueTwo", equalTo("three"));
+            }
+        }
     }
 }
