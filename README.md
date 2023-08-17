@@ -15,11 +15,11 @@ Adds support to transport state across different stubs.
     - append new states a state list
 - Delete a state
     - delete states from state list (first, last, by index, by state propery comparison)
-- request matching against context existance/non-existance
-- response templating integration
+- Request matching against context existance/non-existance
+- Response templating integration
     - get state for a given context
     - get state list entry by index
-- templating support in all configuration options of this extension
+- Templating support in all configuration options of this extension
 
 ## Glossary
 
@@ -47,7 +47,7 @@ classDiagram
 
 ## Background
 
-Wiremock supports [Response Templating](https://wiremock.org/docs/response-templating/) and [Scenarios](https://wiremock.org/docs/stateful-behaviour/)
+WireMock supports [Response Templating](https://wiremock.org/docs/response-templating/) and [Scenarios](https://wiremock.org/docs/stateful-behaviour/)
 to add dynamic behavior and state. Both approaches have limitations:
 
 - `Response templating` only allows accessing data submitted in the same request
@@ -214,7 +214,7 @@ add authentication to GitHub packages.
 
 ### Java
 
-This extension makes use of Wiremock's `ExtensionFactory`, so only one extension has to be registered: `StateExtension`.
+This extension makes use of WireMock's `ExtensionFactory`, so only one extension has to be registered: `StateExtension`.
 In order to use them, templating has to be enabled as well. A store for all state data has to be provided. This extension
 provides a `CaffeineStore` which can be used - or you can provide your own store:
 
@@ -755,7 +755,7 @@ Example:
 
 ### Error handling
 
-Missing Helper properties as well as unknown context properties are reported as error. Wiremock renders them in the field, itself, so there won't be an
+Missing Helper properties as well as unknown context properties are reported as error. WireMock renders them in the field, itself, so there won't be an
 exception.
 
 Example response with error:
