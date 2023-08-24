@@ -261,7 +261,8 @@ docker run -it --rm \
 -p 8080:8080 \
 --name wiremock \
 -v $PWD/extensions:/var/wiremock/extensions \
-wiremock/wiremock:3x
+wiremock/wiremock:3x \
+-- --global-response-templating
 ```
 
 ## Record a state

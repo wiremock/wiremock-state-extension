@@ -56,8 +56,8 @@ shadowJar {
         from("shadowjar/resources") {}
     }
 
-    relocate "com.github.ben-manes.caffeine", 'wiremock.org.extensions.state.caffeine'
-    relocate "com.github.jknack", 'wiremock.org.extensions.state.jknack'
+    relocate "com.github.ben-manes.caffeine", 'wiremock.com.github.ben-manes.caffeine'
+    relocate "com.github.jknack", 'wiremock.com.github.jknack'
 
 
     dependencies {

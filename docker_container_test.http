@@ -1,0 +1,47 @@
+### empty get
+
+GET http://localhost:8080/queue/myqueue
+
+> {%
+    client.test("Request executed successfully", function () {
+        const status = response.status;
+        client.assert(status === 200, "expected response status 200 but received '" + status + "'");
+    });
+    client.test("Response content-type is json", function() {
+        const type = response.contentType.mimeType;
+        client.assert(type === "application/json", "Expected 'application/json' but received '" + type + "'");
+    });
+    client.test("empty list is returned", function () {
+        const item = response.body.item;
+        client.assert(item === "no data", "response is not an empty list: '" + item + "'");
+    });
+%}
+
+### POST entry
+
+POST http://localhost:8080/queue/myqueue/abdcef
+
+> {%
+    client.test("Request executed successfully", function () {
+        client.assert(response.status === 200, "response status is not 200");
+    });
+%}
+
+### filled get
+
+GET http://localhost:8080/queue/myqueue
+
+> {%
+    client.test("Request executed successfully", function () {
+        const status = response.status;
+        client.assert(status === 200, "expected response status 200 but received '" + status + "'");
+    });
+    client.test("Response content-type is json", function() {
+        const type = response.contentType.mimeType;
+        client.assert(type === "application/json", "Expected 'application/json' but received '" + type + "'");
+    });
+    client.test("list with correct  is returned", function () {
+        const item = response.body.item;
+        client.assert(item === 'abdcef', "response does not contain queue item but is: '" + item + "'");
+    });
+%}
