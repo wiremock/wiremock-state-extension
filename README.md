@@ -113,13 +113,16 @@ the `GET` won't have any knowledge of the previous post.
     ```
 
 2`POST` add another new item (`POST /queue`)
+
 - Request:
 
    ```json
    {
   "firstName": "Jane",
   "lastName": "Doe"
+
 }
+
    ```
 
 - Response:
@@ -144,7 +147,9 @@ the `GET` won't have any knowledge of the previous post.
   "id": "kn0ixsaswzrzcfzriytrdupnjnxor1is",
   "firstName": "John",
   "lastName": "Doe"
+
 }
+
   ```
 
 4. `GET` to retrieve the second value (`GET /queue`)
@@ -251,11 +256,10 @@ java -cp "wiremock-state-extension-standalone-0.0.5.jar:wiremock-standalone-3.0.
 
 ### Docker
 
-Using the extension with docker is similar to its usage with usage [standalone](#standalone): it just has to be available on 
+Using the extension with docker is similar to its usage with usage [standalone](#standalone): it just has to be available on
 the classpath to be loaded automatically - it does not have to be added via `--extensions` .
 
 **Note:** This extension depends on the current WireMock beta development, thus the tag `3x` has to be used:
-
 
 ```bash
 docker run -it --rm \
@@ -441,16 +445,18 @@ To append a state to a list:
 
 ### Accessing the previous state
 
-You can use the `state` helper to temporarily access the previous state. Use the `state` helper in the same way as you would use it when you [retrieve a state](#retrieve-a-state).
+You can use the `state` helper to temporarily access the previous state. Use the `state` helper in the same way as you would use it when
+you [retrieve a state](#retrieve-a-state).
 
 **Note:** This extension does not keep a history in itself but it's an effect of the evaluation order.
 As templates are evaluated before the state is written, the state you access in `recordState` is the one before you store the new one
-(so there might be none - you might want to use `default` for these cases). In case you have multiple `recordState` `serveEventListeners`, you will have new states
+(so there might be none - you might want to use `default` for these cases). In case you have multiple `recordState` `serveEventListeners`, you will have new
+states
 being created in between, thus the previous state is the last stored one (so: not the one before the request).
 
 1. listener 1 is executed
-   1. accesses state n
-   2. stores state n+1
+    1. accesses state n
+    2. stores state n+1
 2. listener 2 is executed
     1. accesses state n+1
     2. stores state n+2
@@ -477,7 +483,6 @@ The evaluation order of listeners within a stub as well as across stubs is not g
   ]
 }
 ```
-
 
 ## Deleting a state
 
@@ -528,50 +533,62 @@ Dictionary - only one option is interpreted (top to bottom as listed here)
 - ```json
   { 
     "name": "deleteState",
-    "list": {
-      "deleteFirst": true
+    "parameters": {
+      "list": {
+        "deleteFirst": true
+      }
     }
   }
   ```
 - ```json
   { 
     "name": "deleteState",
-    "list": {
-      "deleteLast": true
+    "parameters": {
+      "list": {
+        "deleteLast": true
+      }
     }
   }
   ```
 - ```json
   { 
     "name": "deleteState",
-    "list": {
-      "deleteIndex": "1"
+    "parameters": {
+      "list": {
+        "deleteIndex": "1"
+      }
     }
   }
   ```
 - ```json
   { 
     "name": "deleteState",
-    "list": {
-      "deleteIndex": "-1"
+    "parameters": {
+      "list": {
+        "deleteIndex": "-1"
+      }
     }
   }
   ```
 - ```json
   { 
     "name": "deleteState",
-    "list": {
-      "deleteIndex": "{{request.pathSegments.[1]}}"
+    "parameters": {
+      "list": {
+        "deleteIndex": "{{request.pathSegments.[1]}}"
+      }
     }
   }
   ```
 - ```json
   { 
     "name": "deleteState",
-    "list": {
-      "deleteWhere": {
-        "property": "myProperty",
-        "value": "{{request.pathSegments.[2]}}"
+    "parameters": {
+      "list": {
+        "deleteWhere": {
+          "property": "myProperty",
+          "value": "{{request.pathSegments.[2]}}"
+        }
       }
     }
   }
@@ -763,7 +780,7 @@ The handler has the following parameters:
       The number matches the one described in [Context update count match](#context-update-count-match)
     - `property='listSize` retrieves the number of entries of `list`
     - `property='list` get the whole list as array, e.g. to use it with [handlebars #each](https://handlebarsjs.com/guide/builtin-helpers.html#each)
-      - this property always has a default value (empty list), which can be overwritten with a JSON list
+        - this property always has a default value (empty list), which can be overwritten with a JSON list
 - `list`: Getting an entry of the context's `list`, identified via a JSON path. Examples:
     - getting the first state in the list: `list='[0].myProperty`
     - getting the last state in the list: `list='[-1].myProperty`
@@ -774,7 +791,7 @@ You have to choose either `property` or `list` (otherwise, you will get a config
 
 To retrieve a full body, use tripple braces: `{{{state context=request.pathSegments.[1] property='fullBody'}}}` .
 
-When registering this extension, this helper is available via  WireMock's [response templating](https://wiremock.org/3.x/docs/response-templating/) as well as 
+When registering this extension, this helper is available via WireMock's [response templating](https://wiremock.org/3.x/docs/response-templating/) as well as
 in all configuration options of this extension.
 
 ### List operations
@@ -784,28 +801,58 @@ You can use [handlebars #each](https://handlebarsjs.com/guide/builtin-helpers.ht
 Things to consider:
 
 - this syntax only works with `body`. It DOES NOT work with `jsonBody`
-  - as this might get ugly, consider using `bodyFileName` / `withBodyFile()` have proper indentation
+    - as this might get ugly, consider using `bodyFileName` / `withBodyFile()` have proper indentation
 - the default response for non-existant context as well as non-existant list in a context is an empty list. These states cannot be differentiated here
-  - if you still want a different response, consider using a [StateRequestMatcher](#negative-context-exists-match)
+    - if you still want a different response, consider using a [StateRequestMatcher](#negative-context-exists-match)
 - the default value for this property has to be a valid JSON list - otherwise you will get an error log and the empty list response
 - JSON does not allow trailing commas, so in order to create a valid JSON list, use `{{#unless @last}},{{/unless}` before `{{/each}}`
 
+Example with inline body:
 
-Example:
 ```json
 {
-  "request" : {
-    "urlPathPattern" : "/listing",
-    "method" : "GET"
+  "request": {
+    "urlPathPattern": "/listing",
+    "method": "GET"
   },
-  "response" : {
-    "status" : 200,
-    "body" : "[\n{{# each (state context=list property='list' default='[]') }}  {\n    \"id\": \"{{id}}\",\n    \"firstName\": \"{{firstName}}\",\n    \"firstName\": \"{{firstName}}\"  }{{#unless @last}},{{/unless}}\n{{/each}}]",
-    "headers" : {
-      "content-type" : "application/json"
+  "response": {
+    "status": 200,
+    "body": "[\n{{# each (state context='list' property='list' default='[]') }}  {\n    \"id\": \"{{id}}\",\n    \"firstName\": \"{{firstName}}\",\n    \"lastName\": \"{{lastName}}\"  }{{#unless @last}},{{/unless}}\n{{/each}}]",
+    "headers": {
+      "content-type": "application/json"
     }
   }
 }
+```
+
+Example with bodyFileName:
+
+```json
+{
+  "request": {
+    "urlPathPattern": "/listing",
+    "method": "GET"
+  },
+  "response": {
+    "status": 200,
+    "bodyFileName": "body.json",
+    "headers": {
+      "content-type": "application/json"
+    }
+  }
+}
+```
+
+```json
+[
+  {{# each (state context='list' property='list' default='[]') }}  
+  {
+    "id": {{id}},    
+    "firstName": "{{firstName}}",   
+    "lastName": "{{lastName}}"
+  }{{#unless @last}},{{/unless}}
+  {{/each}}
+]
 ```
 
 ### Error handling
@@ -818,12 +865,13 @@ Example response with error:
 ```json
 {
   "id": "kn0ixsaswzrzcfzriytrdupnjnxor1is",
-  "firstName": "[ERROR: No state for context kn0ixsaswzrzcfzriytrdupnjnxor1is, property firstName found]",
+  "firstName": "[ERROR: No state for context 'kn0ixsaswzrzcfzriytrdupnjnxor1is', property 'firstName' found]",
   "lastName": "Doe"
 }
 ```
 
-To avoid errors, you can specify a `default` for the state helper: `"clientId": "{{state context=request.pathSegments.[1] property='firstname' default='John'}}",`
+To avoid errors, you can specify a `default` for the state
+helper: `"clientId": "{{state context=request.pathSegments.[1] property='firstname' default='John'}}",`
 
 # Debugging
 

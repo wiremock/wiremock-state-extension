@@ -1,0 +1,9 @@
+[
+  {{# each (state context='todolist' property='list' default='[]') }}
+    {
+      "id": {{id}},
+      "title": "{{title}}",
+      "description": "{{description}}"
+  }{{#unless @last}},{{/unless}}
+  {{/each}}
+]

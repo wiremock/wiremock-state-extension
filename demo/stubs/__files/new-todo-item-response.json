@@ -1,0 +1,5 @@
+{
+  "id": {{randomInt lower=1 upper=10000}},
+  "title": "{{jsonPath request.body '$.title'}}",
+  "description": "{{jsonPath request.body '$.description'}}"
+}
