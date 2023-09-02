@@ -617,6 +617,36 @@ behavior for requests with and without a matching context. The parameter support
 }
 ```
 
+### Property existence match
+
+In addition to the existence of a context, you can check for the existence or absence of a property
+within that context. The following matchers are available:
+
+- `hasProperty`
+- `hasNotProperty`
+
+As for other matchers, templating is supported.
+
+```json
+{
+  "request": {
+    "method": "GET",
+    "urlPattern": "/test/[^\/]+/[^\/]+",
+    "customMatcher": {
+      "name": "state-matcher",
+      "parameters": {
+        "hasContext": "{{request.pathSegments.[1]}}",
+        "hasProperty": "{{request.pathSegments.[2]}}"
+      }
+    }
+  },
+  "response": {
+    "status": 200
+  }
+}
+```
+
+
 ### Context update count match
 
 Whenever the serve event listener `recordState` is processed, the internal context update counter is increased. The number can be used
@@ -626,7 +656,7 @@ for request matching as well. The following matchers are available:
 - `updateCountLessThan`
 - `updateCountMoreThan`
 
-As for other matchers, templating is supported.
+As for other matchers, templating is supported. In case the provided value for this check is not numeric, it is handled as non-matching. No error will be reported or logged.
 
 ```json
 {
@@ -656,7 +686,7 @@ for request matching as well. The following matchers are available:
 - `listSizeLessThan`
 - `listSizeMoreThan`
 
-As for other matchers, templating is supported.
+As for other matchers, templating is supported. In case the provided value for this check is not numeric, it is handled as non-matching. No error will be reported or logged.
 
 ```json
 {

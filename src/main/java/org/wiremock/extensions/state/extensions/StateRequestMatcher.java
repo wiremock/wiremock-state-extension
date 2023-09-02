@@ -34,6 +34,8 @@ import java.util.Optional;
 import java.util.function.BiFunction;
 import java.util.stream.Collectors;
 
+import static com.github.tomakehurst.wiremock.common.LocalNotifier.notifier;
+
 /**
  * Request matcher for state.
  * <p>
@@ -51,12 +53,12 @@ public class StateRequestMatcher extends RequestMatcherExtension implements Stat
         this.templateEngine = templateEngine;
     }
 
-    private static List<Map.Entry<CountMatcher, Object>> getMatches(Parameters parameters) {
+    private static List<Map.Entry<ContextMatcher, Object>> getMatches(Parameters parameters) {
         return parameters
             .entrySet()
             .stream()
-            .filter(it -> CountMatcher.from(it.getKey()) != null)
-            .map(it -> Map.entry(CountMatcher.from(it.getKey()), it.getValue()))
+            .filter(it -> ContextMatcher.from(it.getKey()) != null)
+            .map(it -> Map.entry(ContextMatcher.from(it.getKey()), it.getValue()))
             .collect(Collectors.toUnmodifiableList());
     }
 
@@ -78,7 +80,7 @@ public class StateRequestMatcher extends RequestMatcherExtension implements Stat
     private MatchResult hasContext(Map<String, Object> model, Parameters parameters, String template) {
         return contextManager.getContext(renderTemplate(model, template))
             .map(context -> {
-                List<Map.Entry<CountMatcher, Object>> matchers = getMatches(parameters);
+                List<Map.Entry<ContextMatcher, Object>> matchers = getMatches(parameters);
                 if (matchers.isEmpty()) {
                     return MatchResult.exactMatch();
                 } else {
@@ -87,11 +89,11 @@ public class StateRequestMatcher extends RequestMatcherExtension implements Stat
             }).orElseGet(MatchResult::noMatch);
     }
 
-    private MatchResult calculateMatch(Map<String, Object> model, Context context, List<Map.Entry<CountMatcher, Object>> matchers) {
+    private MatchResult calculateMatch(Map<String, Object> model, Context context, List<Map.Entry<ContextMatcher, Object>> matchers) {
         model.put("context", ContextTemplateModel.from(context));
         var result = matchers
             .stream()
-            .map(it -> it.getKey().evaluate(context, Long.valueOf(renderTemplate(model, it.getValue().toString()))))
+            .map(it -> it.getKey().evaluate(context, renderTemplate(model, it.getValue().toString())))
             .filter(it -> !it)
             .count();
 
@@ -111,26 +113,40 @@ public class StateRequestMatcher extends RequestMatcherExtension implements Stat
         return templateEngine.getUncachedTemplate(value).apply(context);
     }
 
-    private enum CountMatcher {
-        updateCountEqualTo((Context context, Long value) -> context.getUpdateCount().equals(value)),
-        updateCountLessThan((Context context, Long value) -> context.getUpdateCount() < value),
-        updateCountMoreThan((Context context, Long value) -> context.getUpdateCount() > value),
-        listSizeEqualTo((Context context, Long value) -> context.getList().size() == value),
-        listSizeLessThan((Context context, Long value) -> context.getList().size() < value),
-        listSizeMoreThan((Context context, Long value) -> context.getList().size() > value);
+    private enum ContextMatcher {
 
-        private final BiFunction<Context, Long, Boolean> evaluator;
+        hasProperty((Context c, String stringValue) -> c.getProperties().containsKey(stringValue)),
+        hasNotProperty((Context c, String stringValue) -> !c.getProperties().containsKey(stringValue)),
+        updateCountEqualTo((Context c, String stringValue) -> withConvertedNumber(c, stringValue, (context, value) -> context.getUpdateCount().equals(value))),
+        updateCountLessThan((Context c, String stringValue) -> withConvertedNumber(c, stringValue, (context, value) -> context.getUpdateCount() < value)),
+        updateCountMoreThan((Context c, String stringValue) -> withConvertedNumber(c, stringValue, (context, value) -> context.getUpdateCount() > value)),
+        listSizeEqualTo((Context c, String stringValue) -> withConvertedNumber(c, stringValue, (context, value) -> context.getList().size() == value)),
+        listSizeLessThan((Context c, String stringValue) -> withConvertedNumber(c, stringValue, (context, value) -> context.getList().size() < value)),
+        listSizeMoreThan((Context c, String stringValue) -> withConvertedNumber(c, stringValue, (context, value) -> context.getList().size() > value));
 
-        CountMatcher(BiFunction<Context, Long, Boolean> evaluator) {
+        private final BiFunction<Context, String, Boolean> evaluator;
+
+        ContextMatcher(BiFunction<Context, String, Boolean> evaluator) {
             this.evaluator = evaluator;
         }
 
-        public static CountMatcher from(String from) {
+        public static ContextMatcher from(String from) {
             return Arrays.stream(values()).filter(it -> it.name().equals(from)).findFirst().orElse(null);
         }
 
-        public boolean evaluate(Context context, Long value) {
+        private static boolean withConvertedNumber(Context context, String stringValue, BiFunction<Context, Long, Boolean> evaluator) {
+            try {
+                var longValue = Long.valueOf(stringValue);
+                return evaluator.apply(context, longValue);
+            } catch (NumberFormatException ex) {
+                return false;
+            }
+
+        }
+
+        public boolean evaluate(Context context, String value) {
             return this.evaluator.apply(context, value);
         }
+
     }
 }
