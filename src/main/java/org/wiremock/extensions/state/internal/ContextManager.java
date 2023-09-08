@@ -62,7 +62,13 @@ public class ContextManager {
                     it.incUpdateCount();
                     return it;
                 }).orElseGet(() -> new Context(contextName));
-            context.getProperties().putAll(properties);
+            properties.forEach((k, v) -> {
+                if(v.equals("null")) {
+                    context.getProperties().remove(k);
+                } else {
+                    context.getProperties().put(k, v);
+                }
+            });
             store.put(contextName, context);
             return context.getUpdateCount();
         }

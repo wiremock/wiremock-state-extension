@@ -271,6 +271,7 @@ wiremock/wiremock:3x \
 The state is recorded in `serveEventListeners` of a stub. The following functionalities are provided:
 
 - `state` : stores a state in a context. Storing the state multiple times can be used to selectively overwrite existing properties.
+  - to delete a selective property, set it to `null` (as string).
 - `list` : stores a state in a list. Can be used to prepend/append new states to an existing list. List elements cannot be modified (only read/deleted).
 
 `state` and `list` can be used in the same `ServeEventListener` (would count as two updates). Adding multiple `recordState` `ServeEventListener` is supported.
@@ -385,6 +386,28 @@ To record a complete response body, use:
         "context": "{{jsonPath response.body '$.id'}}",
         "state": {
           "fullBody": "{{jsonPath response.body '$'}}"
+        }
+      }
+    }
+  ]
+}
+```
+
+To delete a selective property, ensure that the field has the value `null` as string, e.g. by specifying `default='null` for `jsonpath`:
+
+```json
+{
+  "request": {},
+  "response": {},
+  "serveEventListeners": [
+    {
+      "name": "recordState",
+      "parameters": {
+        "context": "{{jsonPath response.body '$.id'}}",
+        "state": {
+          "id": "{{jsonPath response.body '$.id'}}",
+          "firstName": "{{jsonPath request.body '$.firstName' default='null'}}",
+          "lastName": "{{jsonPath request.body '$.lastName' default='null'}}"
         }
       }
     }
