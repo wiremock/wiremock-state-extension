@@ -28,6 +28,7 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
 import java.net.URI;
+import java.util.HashMap;
 import java.util.Map;
 
 import static com.github.tomakehurst.wiremock.client.WireMock.delete;
@@ -173,7 +174,7 @@ class StateRequestMatcherTest extends AbstractTestBase {
                         Map.of(
                             "context", "{{jsonPath response.body '$.id'}}",
                             "state", Map.of(
-                                "stateValue", "{{jsonPath request.body '$.contextValue'}}"
+                                "stateValue", "{{jsonPath request.body '$.contextValue' default='null'}}"
                             ),
                             "list", Map.of(
                                 "addLast", Map.of(
@@ -228,7 +229,10 @@ class StateRequestMatcherTest extends AbstractTestBase {
     private String postAndAssertContextValue(String contextName, String contextValue) {
         var context = given()
             .accept(ContentType.JSON)
-            .body(Map.of("contextValue", contextValue, "id", contextName))
+            .body(new HashMap<String, String>() {{
+                put("contextValue", contextValue);
+                put("id", contextName);
+            }})
             .post(assertDoesNotThrow(() -> new URI(wm.getRuntimeInfo().getHttpBaseUrl() + TEST_URL + "/" + contextName)))
             .then()
             .statusCode(HttpStatus.SC_OK)
@@ -301,6 +305,16 @@ class StateRequestMatcherTest extends AbstractTestBase {
 
                 var context = postAndAssertContextValue(contextValue);
                 getAndAssertContextMatcher(context, "hasProperty/stateValue", HttpStatus.SC_OK, "context found", "2", "1");
+            }
+
+            @Test
+            void test_hasProperty_propertyGotDeleted_fail() {
+                var contextValue = RandomStringUtils.randomAlphabetic(5);
+
+                var context = postAndAssertContextValue(contextValue);
+                postAndAssertContextValue(contextValue);
+                postAndAssertContextValue(context, null);
+                getAndAssertContextMatcher(context, "hasProperty/stateValue", HttpStatus.SC_NOT_FOUND);
             }
 
             @Test
