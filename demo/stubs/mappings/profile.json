@@ -1,0 +1,112 @@
+{
+  "mappings": [
+    {
+      "request": {
+        "urlPathPattern": "/api/v1/profile",
+        "method": "GET"
+      },
+      "response": {
+        "status": 200,
+        "jsonBody": {
+          "firstName": "{{state context='profile' property='firstName' default=''}}",
+          "familyName": "{{state context='profile' property='familyName' default=''}}",
+          "street": "{{state context='profile' property='street' default=''}}",
+          "city": "{{state context='profile' property='city' default=''}}"
+        },
+        "headers": {
+          "content-type": "application/json"
+        }
+      }
+    },
+    {
+      "request": {
+        "urlPathPattern": "/api/v1/profile/image",
+        "method": "GET",
+        "customMatcher": {
+          "name": "state-matcher",
+          "parameters": {
+            "hasContext": "profile",
+            "hasNotProperty": "image"
+          }
+        }
+      },
+      "response": {
+        "status": 404
+      }
+    },
+    {
+      "request": {
+        "urlPathPattern": "/api/v1/profile/image",
+        "method": "GET",
+        "customMatcher": {
+          "name": "state-matcher",
+          "parameters": {
+            "hasContext": "profile",
+            "hasProperty": "image"
+          }
+        }
+
+      },
+      "response": {
+        "status": 200,
+        "body": "{{{state context='profile' property='image'}}}",
+        "headers": {
+          "content-type": "{{state context='profile' property='imageContentType' default='image/png'}}"
+        }
+      }
+    },
+    {
+      "request": {
+        "urlPathPattern": "/api/v1/profile",
+        "method": "POST"
+      },
+      "response": {
+        "status": 200,
+        "jsonBody": {
+          "firstName": "{{jsonPath request.body '$.firstName'}}",
+          "familyName": "{{jsonPath request.body '$.familyName'}}",
+          "street": "{{jsonPath request.body '$.street'}}",
+          "city": "{{jsonPath request.body '$.city'}}"
+        },
+        "headers": {
+          "content-type": "application/json"
+        }
+      },
+      "serveEventListeners": [
+        {
+          "name": "recordState",
+          "parameters": {
+            "state": {
+              "firstName": "{{jsonPath request.body '$.firstName'}}",
+              "familyName": "{{jsonPath request.body '$.familyName'}}",
+              "street": "{{jsonPath request.body '$.street'}}",
+              "city": "{{jsonPath request.body '$.city'}}"
+            },
+            "context": "profile"
+          }
+        }
+      ]
+    },
+    {
+      "request": {
+        "urlPathPattern": "/api/v1/profile/image",
+        "method": "POST"
+      },
+      "response": {
+        "status": 201
+      },
+      "serveEventListeners": [
+        {
+          "name": "recordState",
+          "parameters": {
+            "state": {
+              "image": "{{request.body}}",
+              "imageContentType": "{{request.headers.content-type}}"
+            },
+            "context": "profile"
+          }
+        }
+      ]
+    }
+  ]
+}

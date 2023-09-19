@@ -64,12 +64,12 @@ public class StateHandlerbarHelper extends HandlebarsHelper<Object> {
         }
         if (StringUtils.isNotBlank(property)) {
             return getProperty(contextName, property, defaultValue)
-                .orElseGet(() -> handleError(String.format("No state for context %s, property %s found", contextName, property)));
+                .orElseGet(() -> handleError(String.format("No state for context '%s', property '%s' found", contextName, property)));
         } else {
             return getList(contextName, list)
                 .orElseGet(() ->
                     Optional.ofNullable(defaultValue)
-                        .orElseGet(() -> handleError(String.format("No state for context %s, list %s found", contextName, list)))
+                        .orElseGet(() -> handleError(String.format("No state for context '%s', list '%s' found", contextName, list)))
                 );
 
         }

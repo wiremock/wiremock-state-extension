@@ -1,0 +1,33 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="WireMock Docker Demo" type="docker-deploy" factoryName="docker-image" server-name="Docker">
+    <deployment type="docker-image">
+      <settings>
+        <option name="imageTag" value="wiremock/wiremock:3x" />
+        <option name="command" value="--global-response-templating --jetty-header-request-size 32768 --jetty-header-response-size 32768 --verbose" />
+        <option name="containerName" value="wiremock-extension-state-test" />
+        <option name="portBindings">
+          <list>
+            <DockerPortBindingImpl>
+              <option name="containerPort" value="8080" />
+              <option name="hostPort" value="8080" />
+            </DockerPortBindingImpl>
+          </list>
+        </option>
+        <option name="volumeBindings">
+          <list>
+            <DockerVolumeBindingImpl>
+              <option name="containerPath" value="/var/wiremock/extensions" />
+              <option name="hostPath" value="$PROJECT_DIR$/build/libs" />
+              <option name="readOnly" value="true" />
+            </DockerVolumeBindingImpl>
+            <DockerVolumeBindingImpl>
+              <option name="containerPath" value="/home/wiremock" />
+              <option name="hostPath" value="$PROJECT_DIR$/demo/stubs" />
+            </DockerVolumeBindingImpl>
+          </list>
+        </option>
+      </settings>
+    </deployment>
+    <method v="2" />
+  </configuration>
+</component>

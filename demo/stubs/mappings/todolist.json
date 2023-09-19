@@ -1,0 +1,89 @@
+{
+  "mappings": [
+    {
+      "request": {
+        "method": "GET",
+        "urlPattern": "/api/v1/todolist",
+        "customMatcher": {
+          "name": "state-matcher",
+          "parameters": {
+            "hasNotContext": "todolist"
+          }
+        }
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "body": "[]"
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "urlPattern": "/api/v1/todolist",
+        "customMatcher": {
+          "name": "state-matcher",
+          "parameters": {
+            "hasContext": "todolist"
+          }
+        }
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "bodyFileName": "todo-list-response.json"
+      }
+    },
+    {
+      "request" : {
+        "urlPathPattern" : "/api/v1/todolist",
+        "method" : "POST"
+      },
+      "response" : {
+        "status" : 200,
+        "bodyFileName" : "new-todo-item-response.json",
+        "headers" : {
+          "content-type" : "application/json"
+        }
+      },
+      "serveEventListeners" : [ {
+        "name" : "recordState",
+        "parameters" : {
+          "list" : {
+            "addLast" : {
+              "id" : "{{jsonPath response.body '$.id'}}",
+              "title" : "{{jsonPath response.body '$.title'}}",
+              "description" : "{{jsonPath response.body '$.description'}}"
+            }
+          },
+          "context" : "todolist"
+        }
+      } ]
+    },
+    {
+      "request" : {
+        "urlPathPattern" : "/api/v1/todolist/[^/]+",
+        "method" : "DELETE"
+      },
+      "response" : {
+        "status" : 204
+      },
+      "serveEventListeners" : [ {
+        "name" : "deleteState",
+        "parameters" : {
+          "list": {
+            "deleteWhere": {
+              "property": "id",
+              "value": "{{request.pathSegments.[3]}}"
+            }
+          },
+          "context" : "todolist"
+        }
+      } ]
+    }
+  ]
+}

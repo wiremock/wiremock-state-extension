@@ -78,9 +78,9 @@ class StateTemplateHelperProviderExtensionTest extends AbstractTestBase {
         getAndAssertContextValue(
             "state",
             context,
-            String.format("[ERROR: No state for context %s, property stateValueOne found]", context),
-            String.format("[ERROR: No state for context %s, property stateValueTwo found]", context),
-            String.format("[ERROR: No state for context %s, property listSize found]", context)
+            String.format("[ERROR: No state for context '%s', property 'stateValueOne' found]", context),
+            String.format("[ERROR: No state for context '%s', property 'stateValueTwo' found]", context),
+            String.format("[ERROR: No state for context '%s', property 'listSize' found]", context)
         );
     }
 
@@ -124,8 +124,8 @@ class StateTemplateHelperProviderExtensionTest extends AbstractTestBase {
         getAndAssertContextValue(
             "state",
             contextValue,
-            String.format("[ERROR: No state for context %s, property unknownValue found]", contextValue),
-            String.format("[ERROR: No state for context %s, property unknownValue found]", contextValue),
+            String.format("[ERROR: No state for context '%s', property 'unknownValue' found]", contextValue),
+            String.format("[ERROR: No state for context '%s', property 'unknownValue' found]", contextValue),
             null
         );
     }
