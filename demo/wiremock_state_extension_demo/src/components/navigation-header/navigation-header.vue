@@ -24,7 +24,11 @@ function loadAvatar() {
       image.value = response.data
       hasImage.value = true
     })
-    .catch(() => loadInitials())
+    .catch(() => {
+      image.value = null
+      hasImage.value = false
+      loadInitials()
+    })
 }
 
 function loadInitials() {
@@ -49,7 +53,7 @@ function loadInitials() {
     </template>
     <template v-slot:append>
       <v-avatar color="primary" size="48" @click="$router.push('/profile')">
-        <template v-if="image !== null">
+        <template v-if="hasImage">
           <v-img :src="image" alt="profile image preview"></v-img>
         </template>
         <template v-else>
