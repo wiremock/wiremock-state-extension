@@ -107,6 +107,27 @@
           }
         }
       ]
+    },
+    {
+      "request": {
+        "urlPathPattern": "/api/v1/profile/image",
+        "method": "DELETE"
+      },
+      "response": {
+        "status": 204
+      },
+      "serveEventListeners": [
+        {
+          "name": "recordState",
+          "parameters": {
+            "state": {
+              "image": "null",
+              "imageContentType": "null"
+            },
+            "context": "profile"
+          }
+        }
+      ]
     }
   ]
 }
