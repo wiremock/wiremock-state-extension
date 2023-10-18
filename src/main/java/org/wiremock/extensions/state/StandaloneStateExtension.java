@@ -17,14 +17,10 @@ package org.wiremock.extensions.state;
 
 /**
  * Factory to register all extensions for handling state for standalone service.
- * <p>
- * Uses {@link org.wiremock.extensions.state.CaffeineStore} as store.
- *
- * @see CaffeineStore
  */
 public class StandaloneStateExtension extends StateExtension {
 
     public StandaloneStateExtension() {
-        super(new CaffeineStore());
+        super();
     }
 }

@@ -16,12 +16,7 @@
 package org.wiremock.extensions.state.examples;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.github.tomakehurst.wiremock.client.WireMock;
-import com.github.tomakehurst.wiremock.common.ConsoleNotifier;
 import com.github.tomakehurst.wiremock.extension.Parameters;
-import com.github.tomakehurst.wiremock.junit5.WireMockExtension;
-import com.github.tomakehurst.wiremock.store.Store;
 import io.restassured.RestAssured;
 import io.restassured.http.ContentType;
 import org.apache.commons.lang3.RandomStringUtils;
@@ -29,19 +24,16 @@ import org.apache.http.HttpStatus;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.TestInstance;
-import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.api.parallel.Execution;
-import org.wiremock.extensions.state.CaffeineStore;
-import org.wiremock.extensions.state.StateExtension;
+import org.wiremock.extensions.state.TestBase;
 
 import java.net.URI;
 import java.util.Map;
 
 import static com.github.tomakehurst.wiremock.client.WireMock.get;
+import static com.github.tomakehurst.wiremock.client.WireMock.ok;
 import static com.github.tomakehurst.wiremock.client.WireMock.post;
 import static com.github.tomakehurst.wiremock.client.WireMock.urlPathMatching;
-import static com.github.tomakehurst.wiremock.core.WireMockConfiguration.wireMockConfig;
 import static io.restassured.RestAssured.given;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
@@ -49,23 +41,10 @@ import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 /**
  * Sample test for creating a mock for a listing with java.
  */
-@TestInstance(TestInstance.Lifecycle.PER_CLASS)
 @Execution(SAME_THREAD)
-class StateExtensionListExampleTest {
+class StateExtensionListExampleTest extends TestBase {
 
     private static final String TEST_URL = "/listing";
-    private static final Store<String, Object> store = new CaffeineStore();
-    private static final ObjectMapper mapper = new ObjectMapper();
-
-    @RegisterExtension
-    public static WireMockExtension wm = WireMockExtension.newInstance()
-        .options(
-            wireMockConfig().dynamicPort().dynamicHttpsPort().templatingEnabled(true).globalTemplating(true)
-                .extensions(new StateExtension(store))
-                .notifier(new ConsoleNotifier(true))
-        )
-        .build();
-
 
     @BeforeEach
     public void setup() throws JsonProcessingException {
@@ -127,7 +106,7 @@ class StateExtensionListExampleTest {
         wm.stubFor(
             post(urlPathMatching(TEST_URL))
                 .willReturn(
-                    WireMock.ok()
+                    ok()
                         .withHeader("content-type", "application/json")
                         .withJsonBody(
                             mapper.readTree(
@@ -163,7 +142,7 @@ class StateExtensionListExampleTest {
         wm.stubFor(
             get(urlPathMatching(TEST_URL))
                 .willReturn(
-                    WireMock.ok()
+                    ok()
                         .withHeader("content-type", "application/json")
                         .withBody(
                             "[\n" +

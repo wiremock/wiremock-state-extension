@@ -38,7 +38,7 @@ import static java.time.Duration.ofSeconds;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
 
-class DeleteStateEventListenerTest extends AbstractTestBase {
+class DeleteStateEventListenerTest extends FunctionalTestBase {
 
     @BeforeEach
     void setup() {

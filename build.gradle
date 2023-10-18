@@ -25,7 +25,6 @@ project.ext {
     baseArtifact = 'wiremock-state-extension'
     versions = [
             wiremock  : '3.2.0',
-            caffeine  : '3.1.8',
             handlebars: '4.3.1',
             junit     : '5.10.0',
             assertj   : '3.24.2',
@@ -56,7 +55,6 @@ shadowJar {
         from("shadowjar/resources") {}
     }
 
-    relocate "com.github.ben-manes.caffeine", 'wiremock.com.github.ben-manes.caffeine'
     relocate "com.github.jknack", 'wiremock.com.github.jknack'
 
 
@@ -173,10 +171,9 @@ repositories {
 
 dependencies {
     implementation("org.wiremock:wiremock:${versions.wiremock}")
-    implementation("com.github.ben-manes.caffeine:caffeine:${versions.caffeine}")
-    implementation("com.github.jknack:handlebars-helpers:${versions.handlebars}") {
-        exclude group: 'org.mozilla', module: 'rhino'
-    }
+//    implementation("com.github.jknack:handlebars-helpers:${versions.handlebars}") {
+//        exclude group: 'org.mozilla', module: 'rhino'
+//    }
 
     testImplementation(platform("org.junit:junit-bom:${versions.junit}"))
     testImplementation('org.junit.jupiter:junit-jupiter')

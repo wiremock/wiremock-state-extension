@@ -18,15 +18,15 @@ package org.wiremock.extensions.state;
 import com.github.tomakehurst.wiremock.extension.Extension;
 import com.github.tomakehurst.wiremock.extension.ExtensionFactory;
 import com.github.tomakehurst.wiremock.extension.WireMockServices;
-import com.github.tomakehurst.wiremock.extension.responsetemplating.TemplateEngine;
 import com.github.tomakehurst.wiremock.store.Store;
 import org.wiremock.extensions.state.extensions.DeleteStateEventListener;
 import org.wiremock.extensions.state.extensions.RecordStateEventListener;
 import org.wiremock.extensions.state.extensions.StateRequestMatcher;
 import org.wiremock.extensions.state.extensions.StateTemplateHelperProviderExtension;
+import org.wiremock.extensions.state.internal.BlobToContextStoreAdapter;
+import org.wiremock.extensions.state.internal.Context;
 import org.wiremock.extensions.state.internal.ContextManager;
 
-import java.util.Collections;
 import java.util.List;
 
 /**
@@ -49,23 +49,15 @@ import java.util.List;
  */
 public class StateExtension implements ExtensionFactory {
 
-    private final StateTemplateHelperProviderExtension stateTemplateHelperProviderExtension;
-    private final RecordStateEventListener recordStateEventListener;
-    private final DeleteStateEventListener deleteStateEventListener;
-    private final StateRequestMatcher stateRequestMatcher;
-
-    public StateExtension(Store<String, Object> store) {
-        var contextManager = new ContextManager(store);
-        this.stateTemplateHelperProviderExtension = new StateTemplateHelperProviderExtension(contextManager);
-        var templateEngine = new TemplateEngine(stateTemplateHelperProviderExtension.provideTemplateHelpers(), null, Collections.emptySet(), false);
-
-        this.recordStateEventListener = new RecordStateEventListener(contextManager, templateEngine);
-        this.deleteStateEventListener = new DeleteStateEventListener(contextManager, templateEngine);
-        this.stateRequestMatcher = new StateRequestMatcher(contextManager, templateEngine);
-    }
-
     @Override
     public List<Extension> create(WireMockServices services) {
+        Store<String, Context> store = new BlobToContextStoreAdapter(services.getStores().getBlobStore("state"));
+        var contextManager = new ContextManager(store);
+        StateTemplateHelperProviderExtension stateTemplateHelperProviderExtension = new StateTemplateHelperProviderExtension(contextManager);
+        RecordStateEventListener recordStateEventListener = new RecordStateEventListener(services, contextManager);
+        DeleteStateEventListener deleteStateEventListener = new DeleteStateEventListener(services, contextManager);
+        StateRequestMatcher stateRequestMatcher = new StateRequestMatcher(services, contextManager);
+
         return List.of(
             recordStateEventListener,
             deleteStateEventListener,

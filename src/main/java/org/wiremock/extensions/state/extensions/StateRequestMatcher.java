@@ -16,6 +16,7 @@
 package org.wiremock.extensions.state.extensions;
 
 import com.github.tomakehurst.wiremock.extension.Parameters;
+import com.github.tomakehurst.wiremock.extension.WireMockServices;
 import com.github.tomakehurst.wiremock.extension.responsetemplating.RequestTemplateModel;
 import com.github.tomakehurst.wiremock.extension.responsetemplating.TemplateEngine;
 import com.github.tomakehurst.wiremock.http.Request;
@@ -45,12 +46,12 @@ import static com.github.tomakehurst.wiremock.common.LocalNotifier.notifier;
  */
 public class StateRequestMatcher extends RequestMatcherExtension implements StateExtensionMixin {
 
-    private final TemplateEngine templateEngine;
+    private final WireMockServices wireMockServices;
     private final ContextManager contextManager;
 
-    public StateRequestMatcher(ContextManager contextManager, TemplateEngine templateEngine) {
+    public StateRequestMatcher(WireMockServices wireMockServices, ContextManager contextManager) {
+        this.wireMockServices = wireMockServices;
         this.contextManager = contextManager;
-        this.templateEngine = templateEngine;
     }
 
     private static List<Map.Entry<ContextMatcher, Object>> getMatches(Parameters parameters) {
@@ -110,7 +111,7 @@ public class StateRequestMatcher extends RequestMatcherExtension implements Stat
     }
 
     String renderTemplate(Object context, String value) {
-        return templateEngine.getUncachedTemplate(value).apply(context);
+        return wireMockServices.getTemplateEngine().getUncachedTemplate(value).apply(context);
     }
 
     private enum ContextMatcher {

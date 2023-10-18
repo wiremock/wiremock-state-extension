@@ -2,10 +2,12 @@ package org.wiremock.extensions.state.examples;
 
 import com.github.tomakehurst.wiremock.WireMockServer;
 import com.github.tomakehurst.wiremock.client.WireMock;
+import com.github.tomakehurst.wiremock.common.SingleRootFileSource;
 import com.github.tomakehurst.wiremock.core.Options;
 import com.github.tomakehurst.wiremock.core.WireMockConfiguration;
 import com.github.tomakehurst.wiremock.junit.Stubbing;
 import com.github.tomakehurst.wiremock.store.Store;
+import com.github.tomakehurst.wiremock.store.files.FileSourceBlobStore;
 import com.google.common.io.Resources;
 import io.restassured.http.ContentType;
 import org.apache.http.HttpStatus;
@@ -15,11 +17,14 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
-import org.wiremock.extensions.state.CaffeineStore;
 import org.wiremock.extensions.state.StateExtension;
+import org.wiremock.extensions.state.internal.BlobToContextStoreAdapter;
+import org.wiremock.extensions.state.internal.Context;
 import org.wiremock.extensions.state.internal.ContextManager;
 
+import java.io.File;
 import java.net.URI;
+import java.nio.file.Path;
 import java.time.Duration;
 import java.util.Locale;
 
@@ -34,30 +39,40 @@ import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 /**
  * Sample test to demonstrate remote loading of stub mapping with this extension.
  */
-@TestInstance(TestInstance.Lifecycle.PER_CLASS)
 @Execution(SAME_THREAD)
 public class StubMappingLoadingExampleTest {
 
+    static final Path rootDir = Path.of(Resources.getResource("remoteloader").getPath());
+
     private static WireMockServer wireMockServer;
-    private static final Store<String, Object> store = new CaffeineStore();
-    static final ContextManager contextManager = new ContextManager(store);
+    private static Store<String, Context> store;
+    static ContextManager contextManager;
 
 
     @BeforeAll
     public static void initWithTempDir() {
-        WireMockConfiguration options = wireMockConfig().withRootDirectory(Resources.getResource("remoteloader").getPath())
-                .templatingEnabled(true).globalTemplating(true)
-                .extensions(new StateExtension(store));
+        final File stateDir = rootDir.resolve("state").toFile();
+        final SingleRootFileSource stateFileSource = new SingleRootFileSource(stateDir);
+        stateFileSource.listFilesRecursively().forEach(file -> new File(file.getPath()).delete());
+        stateFileSource.createIfNecessary();
+        store = new BlobToContextStoreAdapter(
+            new FileSourceBlobStore(stateFileSource)
+        );
+        contextManager = new ContextManager(store);
+
+        WireMockConfiguration options = wireMockConfig()
+            .dynamicPort()
+            .withRootDirectory(rootDir.toString())
+            .templatingEnabled(true)
+            .globalTemplating(true)
+            .extensions(new StateExtension());
+
         System.out.println(
                 "Configuring WireMockServer with root directory: " + options.filesRoot().getPath());
-        if (options.portNumber() == Options.DEFAULT_PORT) {
-            options.dynamicPort();
-        }
 
         wireMockServer = new WireMockServer(options);
         wireMockServer.start();
         WireMock.configureFor(wireMockServer.port());
-        Stubbing wm = wireMockServer;
 
         Locale.setDefault(Locale.ENGLISH);
         WireMock.create().port(wireMockServer.port()).build();

@@ -1,0 +1,28 @@
+Possible better approach - a single listener that takes a list of operations:
+<key> <PUT|DELETE> <expression>
+
+Expression has currently state in the template model so can update based on prior state.
+
+Drop the list feature entirely and instead we'll add one or more list manipulation helpers.
+Previous point will enable this.
+
+Make matcher take:
+* Context
+* Key
+* Sub-matcher
+
+Use internal Stores abstraction so that store is provided by WireMock.
+WireMock needs to improve in this regard:
+* Add an object store factory method like with blob stores
+* When requesting a store, provide a hint at whether is should be cache-like or persistent.
+
+Use Deque rather than LinkedList (maybe this will be redundant if we remove the list part).
+
+Add a service definition so it'll work with classpath scanning in standalone.
+
+I think we should drop the counting thing. Again, we should do this via PUT + extra helpers.
+
+Wondering if state values could be typed (other than String). Perhaps if they're always parsed as JSON?
+
+Synchronising on the entire store - we can probably do better than this for performance.
+Need to think about how we can leverage/design the Stores abstraction to handle this for us.

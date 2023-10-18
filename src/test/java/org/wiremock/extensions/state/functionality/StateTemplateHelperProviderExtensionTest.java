@@ -21,7 +21,6 @@ import com.github.tomakehurst.wiremock.common.Json;
 import com.github.tomakehurst.wiremock.extension.Parameters;
 import io.restassured.http.ContentType;
 import io.restassured.response.ValidatableResponse;
-import org.apache.commons.lang3.NotImplementedException;
 import org.apache.commons.lang3.RandomStringUtils;
 import org.apache.http.HttpStatus;
 import org.hamcrest.Matchers;
@@ -44,7 +43,7 @@ import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.Matchers.nullValue;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 
-class StateTemplateHelperProviderExtensionTest extends AbstractTestBase {
+class StateTemplateHelperProviderExtensionTest extends FunctionalTestBase {
 
     @Test
     void test_noExtensionUsage_ok() throws JsonProcessingException, URISyntaxException {

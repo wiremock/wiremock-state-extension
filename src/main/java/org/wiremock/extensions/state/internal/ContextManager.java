@@ -18,21 +18,22 @@ package org.wiremock.extensions.state.internal;
 import com.github.tomakehurst.wiremock.store.Store;
 
 import java.util.LinkedList;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.function.Consumer;
 
 public class ContextManager {
 
-    private final Store<String, Object> store;
+    private final Store<String, Context> store;
 
-    public ContextManager(Store<String, Object> store) {
+    public ContextManager(Store<String, Context> store) {
         this.store = store;
     }
 
     public Object getState(String contextName, String property) {
         synchronized (store) {
-            return store.get(contextName).map(it -> ((Context) it).getProperties().get(property)).orElse(null);
+            return store.get(contextName).map(it -> it.getProperties().get(property)).orElse(null);
         }
     }
 
@@ -44,7 +45,7 @@ public class ContextManager {
      */
     public Optional<Context> getContext(String contextName) {
         synchronized (store) {
-            return store.get(contextName).map(it -> (Context) it).map(Context::new);
+            return store.get(contextName).map(Context::new);
         }
     }
 
@@ -57,11 +58,11 @@ public class ContextManager {
     public Long createOrUpdateContextState(String contextName, Map<String, String> properties) {
         synchronized (store) {
             var context = store.get(contextName)
-                .map(it -> (Context) it)
                 .map(it -> {
                     it.incUpdateCount();
                     return it;
                 }).orElseGet(() -> new Context(contextName));
+
             properties.forEach((k, v) -> {
                 if(v.equals("null")) {
                     context.getProperties().remove(k);
@@ -69,6 +70,7 @@ public class ContextManager {
                     context.getProperties().put(k, v);
                 }
             });
+
             store.put(contextName, context);
             return context.getUpdateCount();
         }
@@ -77,7 +79,6 @@ public class ContextManager {
     public Long createOrUpdateContextList(String contextName, Consumer<LinkedList<Map<String, String>>> consumer) {
         synchronized (store) {
             var context = store.get(contextName)
-                .map(it -> (Context) it)
                 .map(it -> {
                     it.incUpdateCount();
                     return it;
@@ -90,13 +91,13 @@ public class ContextManager {
 
     public Long numUpdates(String contextName) {
         synchronized (store) {
-            return store.get(contextName).map(it -> ((Context) it).getUpdateCount()).orElse(0L);
+            return store.get(contextName).map(Context::getUpdateCount).orElse(0L);
         }
     }
 
     public Long numReads(String contextName) {
         synchronized (store) {
-            return store.get(contextName).map(it -> ((Context) it).getMatchCount()).orElse(0L);
+            return store.get(contextName).map(Context::getMatchCount).orElse(0L);
         }
     }
 }

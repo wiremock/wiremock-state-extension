@@ -15,32 +15,63 @@
  */
 package org.wiremock.extensions.state.internal;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
+
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.LinkedList;
+import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
 public class Context {
 
-    private static final int MAX_IDS = 10;
     private final String contextName;
-    private final Map<String, String> properties = new HashMap<>();
-    private final LinkedList<Map<String, String>> list = new LinkedList<>();
-    private final LinkedList<String> requests = new LinkedList<>();
+    private final Map<String, String> properties;
+    private final LinkedList<Map<String, String>> list;
+    private final List<String> requests;
     private Long updateCount = 1L;
     private Long matchCount = 0L;
 
     public Context(Context other) {
         this.contextName = other.contextName;
+
+        this.properties = new LinkedHashMap<>();
         this.properties.putAll(other.properties);
+
+        this.list = new LinkedList<>();
         this.list.addAll(other.list.stream().map(HashMap::new).collect(Collectors.toList()));
+
+        this.requests = new LinkedList<>();
         this.requests.addAll(other.requests);
+
         this.updateCount = other.updateCount;
         this.matchCount = other.matchCount;
     }
 
     public Context(String contextName) {
         this.contextName = contextName;
+        this.properties = new LinkedHashMap<>();
+        this.list = new LinkedList<>();
+        this.requests = new LinkedList<>();
+    }
+
+    @JsonCreator
+    public Context(
+        @JsonProperty("contextName") String contextName,
+        @JsonProperty("properties") Map<String, String> properties,
+        @JsonProperty("list") LinkedList<Map<String, String>> list,
+        @JsonProperty("updateCount") Long updateCount,
+        @JsonProperty("matchCount") Long matchCount
+    ) {
+        this.contextName = contextName;
+        this.properties = properties;
+        this.list = list;
+        this.updateCount = updateCount;
+        this.matchCount = matchCount;
+
+        this.requests = new LinkedList<>();
     }
 
     public String getContextName() {
@@ -58,19 +89,6 @@ public class Context {
     public Long incUpdateCount() {
         updateCount = updateCount + 1;
         return updateCount;
-    }
-
-    public Long incMatchCount(String requestId) {
-        if (requests.contains(requestId)) {
-            return matchCount;
-        } else {
-            requests.add(requestId);
-            if (requests.size() > MAX_IDS) {
-                requests.removeFirst();
-            }
-            matchCount = matchCount + 1;
-            return matchCount;
-        }
     }
 
     public Map<String, String> getProperties() {

@@ -41,7 +41,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 
-class StateRequestMatcherTest extends AbstractTestBase {
+class StateRequestMatcherTest extends FunctionalTestBase {
 
     private static final String TEST_URL = "/test";
 
