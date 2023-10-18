@@ -31,6 +31,7 @@ import java.util.function.Function;
 import java.util.stream.Stream;
 
 import static com.github.tomakehurst.wiremock.common.LocalNotifier.notifier;
+import static org.wiremock.extensions.state.internal.ExtensionLogger.logger;
 
 /**
  * Response templating helper to access state.
@@ -84,7 +85,11 @@ public class StateHandlerbarHelper extends HandlebarsHelper<Object> {
                     .map(it -> it.getFromContext(context))
                     .orElseGet(() -> context.getProperties().get(property))
             )
-            .or(() -> convertToPropertySpecificDefault(property, defaultValue));
+            .or(() -> convertToPropertySpecificDefault(property, defaultValue))
+            .map((obj) -> {
+                logger().info(contextName, String.format("handlebar(property=%s)", property));
+                return obj;
+            });
     }
 
     private Optional<Object> convertToPropertySpecificDefault(String property, String defaultValue) {
@@ -104,6 +109,10 @@ public class StateHandlerbarHelper extends HandlebarsHelper<Object> {
                     notifier().info("Path query failed: " + e.getMessage());
                     return Optional.empty();
                 }
+            })
+            .map((obj) -> {
+                logger().info(contextName, "handlebar(list)");
+                return obj;
             });
     }
 
