@@ -21,6 +21,9 @@ import java.util.LinkedList;
 import java.util.Map;
 import java.util.Optional;
 import java.util.function.Consumer;
+import java.util.function.Supplier;
+
+import static org.wiremock.extensions.state.internal.ExtensionLogger.logger;
 
 public class ContextManager {
 
@@ -28,6 +31,11 @@ public class ContextManager {
 
     public ContextManager(Store<String, Object> store) {
         this.store = store;
+    }
+
+    private static Supplier<Context> createNewContext(String contextName) {
+        logger().info(contextName, "created");
+        return () -> new Context(contextName);
     }
 
     public Object getState(String contextName, String property) {
@@ -51,6 +59,7 @@ public class ContextManager {
     public void deleteContext(String contextName) {
         synchronized (store) {
             store.remove(contextName);
+            logger().info(contextName, "deleted");
         }
     }
 
@@ -61,12 +70,14 @@ public class ContextManager {
                 .map(it -> {
                     it.incUpdateCount();
                     return it;
-                }).orElseGet(() -> new Context(contextName));
+                }).orElseGet(createNewContext(contextName));
             properties.forEach((k, v) -> {
-                if(v.equals("null")) {
+                if (v.equals("null")) {
                     context.getProperties().remove(k);
+                    logger().info(contextName, String.format("property '%s' removed", k));
                 } else {
                     context.getProperties().put(k, v);
+                    logger().info(contextName, String.format("property '%s' updated", k));
                 }
             });
             store.put(contextName, context);
@@ -81,7 +92,7 @@ public class ContextManager {
                 .map(it -> {
                     it.incUpdateCount();
                     return it;
-                }).orElseGet(() -> new Context(contextName));
+                }).orElseGet(createNewContext(contextName));
             consumer.accept(context.getList());
             store.put(contextName, context);
             return context.getUpdateCount();

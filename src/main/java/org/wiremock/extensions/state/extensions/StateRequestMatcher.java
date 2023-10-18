@@ -35,6 +35,7 @@ import java.util.function.BiFunction;
 import java.util.stream.Collectors;
 
 import static com.github.tomakehurst.wiremock.common.LocalNotifier.notifier;
+import static org.wiremock.extensions.state.internal.ExtensionLogger.logger;
 
 /**
  * Request matcher for state.
@@ -82,6 +83,7 @@ public class StateRequestMatcher extends RequestMatcherExtension implements Stat
             .map(context -> {
                 List<Map.Entry<ContextMatcher, Object>> matchers = getMatches(parameters);
                 if (matchers.isEmpty()) {
+                    logger().info(context, "hasContext matched");
                     return MatchResult.exactMatch();
                 } else {
                     return calculateMatch(model, context, matchers);
@@ -103,6 +105,7 @@ public class StateRequestMatcher extends RequestMatcherExtension implements Stat
     private MatchResult hasNotContext(Map<String, Object> model, String template) {
         var context = renderTemplate(model, template);
         if (contextManager.getContext(context).isEmpty()) {
+            logger().info(context, "hasNotContext matched");
             return MatchResult.exactMatch();
         } else {
             return MatchResult.noMatch();

@@ -32,6 +32,8 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 
+import static org.wiremock.extensions.state.internal.ExtensionLogger.logger;
+
 /**
  * Event listener to trigger state context deletion.
  * <p>
@@ -75,39 +77,61 @@ public class DeleteStateEventListener implements ServeEventListener, StateExtens
 
     private void handleListDeletion(DeleteStateParameters.ListParameters listConfig, String contextName, Map<String, Object> model) {
         if (Boolean.TRUE.equals(listConfig.getDeleteFirst())) {
-            contextManager.createOrUpdateContextList(contextName, maps -> {
-                if (!maps.isEmpty()) maps.removeFirst();
-            });
+            deleteFirst(contextName);
         } else if (Boolean.TRUE.equals(listConfig.getDeleteLast())) {
-            contextManager.createOrUpdateContextList(contextName, maps -> {
-                if (!maps.isEmpty()) maps.removeLast();
-            });
+            deleteLast(contextName);
         } else if (StringUtils.isNotBlank(listConfig.getDeleteIndex())) {
-            try {
-                var index = Integer.parseInt(renderTemplate(model, listConfig.getDeleteIndex()));
-                contextManager.createOrUpdateContextList(contextName, list -> list.remove(index));
-            } catch (IndexOutOfBoundsException | NumberFormatException e) {
-                throw createConfigurationError("List index '%s' does not exist or cannot be parsed: %s", listConfig.getDeleteIndex(), e.getMessage());
-            }
+            deleteIndex(listConfig, contextName, model);
         } else if (listConfig.getDeleteWhere() != null &&
             listConfig.getDeleteWhere().getProperty() != null &&
             listConfig.getDeleteWhere().getValue() != null
         ) {
-            var property = renderTemplate(model, listConfig.getDeleteWhere().getProperty());
-            var value = renderTemplate(model, listConfig.getDeleteWhere().getValue());
-            contextManager.createOrUpdateContextList(contextName, list -> {
-                var iterator = list.iterator();
-                while (iterator.hasNext()) {
-                    var element = iterator.next();
-                    if (Objects.equals(element.getOrDefault(property, null), value)) {
-                        iterator.remove();
-                        break;
-                    }
-                }
-            });
+            deleteWhere(listConfig, contextName, model);
         } else {
-            throw createConfigurationError("Missing/invalid configuration for list");
+            throw createConfigurationError("Missing/invalid configuration for list: ");
         }
+    }
+
+    private Long deleteFirst(String contextName) {
+        return contextManager.createOrUpdateContextList(contextName, maps -> {
+            if (!maps.isEmpty()) maps.removeFirst();
+            logger().info(contextName, "list::deleteFirst");
+        });
+    }
+
+    private void deleteLast(String contextName) {
+        contextManager.createOrUpdateContextList(contextName, maps -> {
+            if (!maps.isEmpty()) maps.removeLast();
+            logger().info(contextName, "list::deleteLast");
+        });
+    }
+
+    private void deleteIndex(DeleteStateParameters.ListParameters listConfig, String contextName, Map<String, Object> model) {
+        try {
+            var index = Integer.parseInt(renderTemplate(model, listConfig.getDeleteIndex()));
+            contextManager.createOrUpdateContextList(contextName, list -> {
+                list.remove(index);
+                logger().info(contextName, String.format("list::deleteIndex(%d)", index));
+            });
+        } catch (IndexOutOfBoundsException | NumberFormatException e) {
+            throw createConfigurationError("List index '%s' does not exist or cannot be parsed: %s", listConfig.getDeleteIndex(), e.getMessage());
+        }
+    }
+
+    private void deleteWhere(DeleteStateParameters.ListParameters listConfig, String contextName, Map<String, Object> model) {
+        var property = renderTemplate(model, listConfig.getDeleteWhere().getProperty());
+        var value = renderTemplate(model, listConfig.getDeleteWhere().getValue());
+        contextManager.createOrUpdateContextList(contextName, list -> {
+            var iterator = list.iterator();
+            while (iterator.hasNext()) {
+                var element = iterator.next();
+                if (Objects.equals(element.getOrDefault(property, null), value)) {
+                    iterator.remove();
+                    logger().info(contextName, String.format("list::deleteWhere(property=%s)", property));
+                    break;
+                }
+            }
+        });
     }
 
     private String createContextName(Map<String, Object> model, DeleteStateParameters parameters) {

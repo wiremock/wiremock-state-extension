@@ -32,6 +32,8 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
+import static org.wiremock.extensions.state.internal.ExtensionLogger.logger;
+
 /**
  * Event listener to trigger state context recording.
  * <p>
@@ -88,16 +90,31 @@ public class RecordStateEventListener implements ServeEventListener, StateExtens
         Optional.ofNullable(parameters.getList())
             .ifPresent(listConfiguration -> {
                     Optional.ofNullable(listConfiguration.getAddFirst())
-                        .ifPresent(configuration ->
-                        contextManager.createOrUpdateContextList(contextName, list -> list.addFirst(getPropertiesFromConfiguration(model, configuration))));
-                    Optional.ofNullable(listConfiguration.getAddLast()).ifPresent(configuration ->
-                        contextManager.createOrUpdateContextList(contextName, list -> list.addLast(getPropertiesFromConfiguration(model, configuration))));
+                        .ifPresent(configuration -> addFirst(contextName, model, configuration));
+                    Optional.ofNullable(listConfiguration.getAddLast())
+                        .ifPresent(configuration -> addLast(contextName, model, configuration));
                 }
             );
     }
 
+    private Long addFirst(String contextName, Map<String, Object> model, Map<String, String> configuration) {
+        return contextManager.createOrUpdateContextList(contextName, list -> {
+            list.addFirst(getPropertiesFromConfiguration(model, configuration));
+            logger().info(contextName, "list::addFirst");
+        });
+    }
+
+    private Long addLast(String contextName, Map<String, Object> model, Map<String, String> configuration) {
+        return contextManager.createOrUpdateContextList(contextName, list -> {
+            list.addLast(getPropertiesFromConfiguration(model, configuration));
+            logger().info(contextName, "list::addLast");
+        });
+    }
+
     private String createContextName(Map<String, Object> model, Parameters parameters) {
-        var rawContext = Optional.ofNullable(parameters.getString("context")).filter(StringUtils::isNotBlank).orElseThrow(() -> new ConfigurationException("no context specified"));
+        var rawContext = Optional.ofNullable(parameters.getString("context"))
+            .filter(StringUtils::isNotBlank)
+            .orElseThrow(() -> new ConfigurationException("no context specified"));
         String context = renderTemplate(model, rawContext);
         if (StringUtils.isBlank(context)) {
             throw createConfigurationError("context cannot be blank");
