@@ -1,0 +1,7 @@
+[
+{{#each (state context=request.pathSegments.[1] property='list' default='[{"listValue": "defaultListValue"}]') }}
+  {
+    "listValue": "{{listValue}}"
+  }{{#unless @last}},{{/unless}}
+{{/each}}
+]

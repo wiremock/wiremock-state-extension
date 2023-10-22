@@ -63,6 +63,13 @@ public class ContextManager {
         }
     }
 
+    public void deleteAllContexts() {
+        synchronized (store) {
+            logger().info("allContexts", "deleted");
+            store.clear();
+        }
+    }
+
     public Long createOrUpdateContextState(String contextName, Map<String, String> properties) {
         synchronized (store) {
             var context = store.get(contextName)

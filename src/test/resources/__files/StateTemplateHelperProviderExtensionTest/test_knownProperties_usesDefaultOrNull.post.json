@@ -1,0 +1,10 @@
+{
+  "valueOne": "{{state context=request.pathSegments.[1] property='stateValueOne'}}",
+  "valueTwo": {{#with (state context=request.pathSegments.[1] property='stateValueTwo') as | value |}}"{{value}}"{{else}}null{{/with}},
+  {{#with (state context=request.pathSegments.[1] property='stateValueTwo') as | value |}}
+    "valueTwoRemovedWhenNotNull": "{{value}}",
+  {{else}}{{/with}}
+  "listSize": "{{state context=request.pathSegments.[1] property='listSize'}}",
+  "valueTwoWithDefault": "{{state context=request.pathSegments.[1] property='stateValueTwo' default='valueTwoDefault'}}",
+  "unknown": "{{state context=request.pathSegments.[1] property='unknown' default='defaultUnknown'}}"
+}
