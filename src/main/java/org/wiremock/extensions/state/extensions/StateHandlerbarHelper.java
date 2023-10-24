@@ -26,11 +26,12 @@ import org.wiremock.extensions.state.internal.Context;
 import org.wiremock.extensions.state.internal.ContextManager;
 
 import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
+import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.stream.Stream;
 
-import static com.github.tomakehurst.wiremock.common.LocalNotifier.notifier;
 import static org.wiremock.extensions.state.internal.ExtensionLogger.logger;
 
 /**
@@ -65,12 +66,18 @@ public class StateHandlerbarHelper extends HandlebarsHelper<Object> {
         }
         if (StringUtils.isNotBlank(property)) {
             return getProperty(contextName, property, defaultValue)
-                .orElseGet(() -> handleError(String.format("No state for context '%s', property '%s' found", contextName, property)));
+                .orElseGet(() -> {
+                    logger().info(contextName, String.format("property '%s' not found, using `null`", property));
+                    return "";
+                });
         } else {
             return getList(contextName, list)
                 .orElseGet(() ->
                     Optional.ofNullable(defaultValue)
-                        .orElseGet(() -> handleError(String.format("No state for context '%s', list '%s' found", contextName, list)))
+                        .orElseGet(() -> {
+                            logger().info(contextName, "list not found, using `null`");
+                            return "";
+                        })
                 );
 
         }
@@ -85,18 +92,21 @@ public class StateHandlerbarHelper extends HandlebarsHelper<Object> {
                     .map(it -> it.getFromContext(context))
                     .orElseGet(() -> context.getProperties().get(property))
             )
-            .or(() -> convertToPropertySpecificDefault(property, defaultValue))
+            .or(() -> convertToPropertySpecificDefault(contextName, property, defaultValue))
             .map((obj) -> {
                 logger().info(contextName, String.format("handlebar(property=%s)", property));
                 return obj;
             });
     }
 
-    private Optional<Object> convertToPropertySpecificDefault(String property, String defaultValue) {
+    private Optional<Object> convertToPropertySpecificDefault(String contextName, String property, String defaultValue) {
         return Stream.of(SpecialProperties.values())
             .filter(it -> it.name().equals(property))
             .findFirst()
-            .map(it -> it.convertDefaultValue(defaultValue))
+            .map(specialProperty ->
+                Optional.ofNullable(defaultValue)
+                    .map(it -> specialProperty.convertDefaultValue(contextName, it))
+                    .orElseGet(() -> specialProperty.getBuiltInDefault(contextName)))
             .or(() -> Optional.ofNullable(defaultValue));
     }
 
@@ -106,7 +116,7 @@ public class StateHandlerbarHelper extends HandlebarsHelper<Object> {
                 try {
                     return Optional.of(JsonPath.read(context.getList(), list));
                 } catch (PathNotFoundException e) {
-                    notifier().info("Path query failed: " + e.getMessage());
+                    logger().info(contextName, "Path query failed: " + e.getMessage());
                     return Optional.empty();
                 }
             })
@@ -117,29 +127,36 @@ public class StateHandlerbarHelper extends HandlebarsHelper<Object> {
     }
 
     private enum SpecialProperties {
-        updateCount(Context::getUpdateCount, it -> it),
-        listSize((context) -> context.getList().size(), it -> it),
+        updateCount(Context::getUpdateCount, (contextName) -> 0, (contextName, it) -> it),
+        listSize((context) -> context.getList().size(), (contextName) -> 0, (contextName, it) -> it),
         @SuppressWarnings("rawtypes") list(
             Context::getList,
-            (defaultValue) -> Optional.ofNullable(defaultValue)
+            (contextName) -> List.of(),
+            (contextName, defaultValue) -> Optional.ofNullable(defaultValue)
                 .map(it -> {
                     try {
                         return Json.read(it, ArrayList.class);
                     } catch (JsonException ex) {
-                        notifier().error("default for list property is not a JSON list - fallback to empty list: " + defaultValue);
+                        logger().error(contextName, "default for list property is not a JSON list - fallback to empty list: " + defaultValue);
                         return null;
                     }
                 })
                 .or(() -> Optional.of(new ArrayList()))
-                .map(it -> (Object) it)
+                .map(it -> it)
                 .get()
         );
 
         private final Function<Context, Object> contextExtractor;
-        private final Function<String, Object> defaultConverter;
+        private final Function<String, Object> builtInDefault;
+        private final BiFunction<String, String, Object> defaultConverter;
 
-        SpecialProperties(Function<Context, Object> contextExtractor, Function<String, Object> defaultConverter) {
+        SpecialProperties(
+            Function<Context, Object> contextExtractor,
+            Function<String, Object> builtInDefault,
+            BiFunction<String, String, Object> defaultConverter
+        ) {
             this.contextExtractor = contextExtractor;
+            this.builtInDefault = builtInDefault;
             this.defaultConverter = defaultConverter;
         }
 
@@ -147,8 +164,14 @@ public class StateHandlerbarHelper extends HandlebarsHelper<Object> {
             return contextExtractor.apply(context);
         }
 
-        public Object convertDefaultValue(String defaultValue) {
-            return defaultConverter.apply(defaultValue);
+        public Object convertDefaultValue(String contextName, String defaultValue) {
+            logger().info(contextName, String.format("property '%s' using configured default value", name()));
+            return defaultConverter.apply(contextName, defaultValue);
+        }
+
+        public Object getBuiltInDefault(String contextName) {
+            logger().info(contextName, String.format("property '%s' using built-in default value", name()));
+            return builtInDefault.apply(contextName);
         }
     }
 

@@ -125,5 +125,4 @@ public class RecordStateEventListener implements ServeEventListener, StateExtens
     private String renderTemplate(Object context, String value) {
         return templateEngine.getUncachedTemplate(value).apply(context);
     }
-
 }

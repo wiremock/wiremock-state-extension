@@ -15,7 +15,7 @@ Adds support to transport state across different stubs.
     - append new states a state list
 - Delete a state
     - delete states from state list (first, last, by index, by state propery comparison)
-- Request matching against context existance/non-existance
+- Request matching against context existence/non-existence
 - Response templating integration
     - get state for a given context
     - get state list entry by index
@@ -802,7 +802,7 @@ Things to consider:
 
 - this syntax only works with `body`. It DOES NOT work with `jsonBody`
     - as this might get ugly, consider using `bodyFileName` / `withBodyFile()` have proper indentation
-- the default response for non-existant context as well as non-existant list in a context is an empty list. These states cannot be differentiated here
+- the default response for non-existent context as well as non-existent list in a context is an empty list. These states cannot be differentiated here
     - if you still want a different response, consider using a [StateRequestMatcher](#negative-context-exists-match)
 - the default value for this property has to be a valid JSON list - otherwise you will get an error log and the empty list response
 - JSON does not allow trailing commas, so in order to create a valid JSON list, use `{{#unless @last}},{{/unless}` before `{{/each}}`
@@ -855,31 +855,63 @@ Example with bodyFileName:
 ]
 ```
 
-### Error handling
+### Missing properties and defaults
 
-Missing Helper properties as well as unknown context properties are reported as error. WireMock renders them in the field, itself, so there won't be an
-exception.
+Missing Helper properties as well as unknown context properties result in using a built-in default. 
 
-Example response with error:
+You can also specify a `default` for the state
+helper: `"clientId": "{{state context=request.pathSegments.[1] property='firstname' default='John'}}",` . 
 
-```json
+If unsure, you may consult the log for to see whether an error occurred.
+
+Properties and their defaults:
+
+| Property                                 | Built-in                                 | Interprets `default`                     |
+|------------------------------------------|------------------------------------------|------------------------------------------|
+| `updateCount`                            | `"0"` (0 as string)                      | yes                                      |
+| `listSize` (when context is not present) | `"0"` (0 as string)                      | yes                                      |
+| `listSize` (when context is present)     | not applied as list is present but empty | not applied as list is present but empty |
+| `list` (when context is not present)     | `[]` (empty list)                        | yes                                      |
+| `list` (when context is present)         | not applied as list is present but empty | not applied as list is present but empty |
+| any other state property                 | `""` (empty string)                      | yes                                      |
+| any other list property                  | `""` (empty string)                      | yes                                      |
+
+Defaults have to be strings or valid objects in order to result in proper JSONs in all configuration scenarios. In order to create
+a JSON response with a `null` property or to ignore unknown properties in your resulting JSON, you may consider using a body file
+with handlebar logic to create the JSON you need: handlebar [interprets](https://handlebarsjs.com/guide/builtin-helpers.html#if) an empty string as `false`.
+
+body file with handlebars to create `myProperty=null`:
+
+```
 {
-  "id": "kn0ixsaswzrzcfzriytrdupnjnxor1is",
-  "firstName": "[ERROR: No state for context 'kn0ixsaswzrzcfzriytrdupnjnxor1is', property 'firstName' found]",
-  "lastName": "Doe"
+{{#with (state context=request.pathSegments.[1] property='myProperty') as | value |}}
+"myProperty": "{{value}}"
+{{else}}
+"myProperty": null
+{{/with}}
 }
 ```
 
-To avoid errors, you can specify a `default` for the state
-helper: `"clientId": "{{state context=request.pathSegments.[1] property='firstname' default='John'}}",`
+body file with handlebars to ignore a missing property:
+
+```
+{
+{{#with (state context=request.pathSegments.[1] property='myProperty') as | value |}}
+"myProperty": "{{value}}"
+{{else}}
+{{/with}}
+}
+```
 
 # Debugging
 
+In general, you can increase verbosity, either by [register a notifier](https://wiremock.org/3.x/docs/configuration/#notification-logging)
+and setting `verbose=true` or starting WireMock standalone (or docker) with `verbose=true`.
+
 - EventListeners and Matchers report errors with WireMock-internal exceptions. Additionally, errors are logged.
   In order to see them, [register a notifier](https://wiremock.org/3.x/docs/configuration/#notification-logging).
-- Response templating errors are printed in the actual response body. To see the body,
-  either [register a notifier](https://wiremock.org/3.x/docs/configuration/#notification-logging) with `verbose` turned on or
-  print the responses in your client application.
+- Response templating errors are printed in the actual response body. 
+- Various actions and decisions of this extensions are logged on info level, along with the context they are happening in.
 
 # Examples
 

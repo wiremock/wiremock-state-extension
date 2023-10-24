@@ -1,0 +1,5 @@
+{
+  {{#with (state context=request.pathSegments.[1] property='contextValue') as | value |}}
+  "contextValue": "{{value}}"
+  {{else}}{{/with}}
+}

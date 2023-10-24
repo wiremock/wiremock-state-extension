@@ -25,7 +25,7 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
 import java.net.URI;
-import java.time.Duration;
+import java.util.HashMap;
 import java.util.Map;
 
 import static com.github.tomakehurst.wiremock.client.WireMock.urlPathMatching;
@@ -43,11 +43,14 @@ class RecordStateEventListenerTest extends AbstractTestBase {
     }
 
     private void postRequest(String path, String contextValueOne, String contextValueTwo) {
+        var body = new HashMap<>(Map.of("contextValueOne", contextValueOne));
+        if (contextValueTwo != null) {
+            body.put("contextValueTwo", contextValueTwo);
+        }
+
         given()
             .accept(ContentType.JSON)
-            .body(Map.of(
-                "contextValueOne", contextValueOne,
-                "contextValueTwo", contextValueTwo)
+            .body(body
             )
             .post(assertDoesNotThrow(() -> new URI(wm.getRuntimeInfo().getHttpBaseUrl() + "/" + path + "/" + contextValueOne)))
             .then()
@@ -69,8 +72,9 @@ class RecordStateEventListenerTest extends AbstractTestBase {
                             "context", "{{request.pathSegments.[1]}}",
                             "state", Map.of(
                                 "stateValueOne", "{{jsonPath request.body '$.contextValueOne'}}",
-                                "stateValueTwo", "{{jsonPath request.body '$.contextValueTwo'}}",
-                                "previousStateValueTwo", "{{state context=request.pathSegments.[1] property='stateValueTwo' default='noPrevious'}}"
+                                "stateValueTwoWithoutDefault", "{{jsonPath request.body '$.contextValueTwo'}}",
+                                "stateValueTwoWithDefault", "{{jsonPath request.body '$.contextValueTwo' default='stateValueTwoDefaultValue'}}",
+                                "previousStateValueTwo", "{{state context=request.pathSegments.[1] property='stateValueTwoWithoutDefault' default='noPrevious'}}"
                             )
                         )
                     )
@@ -127,11 +131,28 @@ class RecordStateEventListenerTest extends AbstractTestBase {
 
             postRequest("state", contextName, "one");
 
-            await()
-                .pollInterval(Duration.ofMillis(10))
-                .atMost(Duration.ofSeconds(5)).untilAsserted(() -> assertThat(contextManager.numUpdates(contextName)).isEqualTo(1));
+            assertThat(contextManager.numUpdates(contextName)).isEqualTo(1);
 
-            assertContext(contextName, contextName, "one", "noPrevious");
+            assertContext(contextName, contextName, "one", "one", "noPrevious");
+        }
+
+        @Test
+        public void test_stateUsesNullOrDefaultIfNoValueIsMissingSpecified_ok() {
+
+            var contextName = RandomStringUtils.randomAlphabetic(5);
+
+            postRequest("state", contextName, null);
+
+            assertThat(contextManager.numUpdates(contextName)).isEqualTo(1);
+
+            assertThat(contextManager.getContext(contextName))
+                .isPresent()
+                .hasValueSatisfying(it -> {
+                        assertThat(it.getProperties())
+                            .containsEntry("stateValueTwoWithoutDefault", "")
+                            .containsEntry("stateValueTwoWithDefault", "stateValueTwoDefaultValue");
+                    }
+                );
         }
 
         @Test
@@ -142,11 +163,39 @@ class RecordStateEventListenerTest extends AbstractTestBase {
             postRequest("state", contextName, "one");
             postRequest("state", contextName, "two");
 
-            await()
-                .pollInterval(Duration.ofMillis(10))
-                .atMost(Duration.ofSeconds(5)).untilAsserted(() -> assertThat(contextManager.numUpdates(contextName)).isEqualTo(2));
+            assertThat(contextManager.numUpdates(contextName)).isEqualTo(2);
 
-            assertContext(contextName, contextName, "two", "one");
+            assertThat(contextManager.getContext(contextName))
+                .isPresent()
+                .hasValueSatisfying(it -> {
+                        assertThat(it.getProperties())
+                            .containsEntry("stateValueOne", contextName)
+                            .containsEntry("stateValueTwoWithoutDefault", "two")
+                            .containsEntry("stateValueTwoWithDefault", "two");
+                    }
+                );
+        }
+
+        @Test
+        public void test_stateCanAccessPreviousState_ok() {
+
+            var contextName = RandomStringUtils.randomAlphabetic(5);
+
+            postRequest("state", contextName, "one");
+            postRequest("state", contextName, "two");
+
+            assertThat(contextManager.numUpdates(contextName)).isEqualTo(2);
+
+            assertThat(contextManager.getContext(contextName))
+                .isPresent()
+                .hasValueSatisfying(it -> {
+                        assertThat(it.getProperties())
+                            .containsEntry("stateValueOne", contextName)
+                            .containsEntry("stateValueTwoWithoutDefault", "two")
+                            .containsEntry("stateValueTwoWithDefault", "two")
+                            .containsEntry("previousStateValueTwo", "one");
+                    }
+                );
         }
 
         @Test
@@ -157,26 +206,23 @@ class RecordStateEventListenerTest extends AbstractTestBase {
             postRequest("state", contextNameOne, "one");
             postRequest("state", contextNameTwo, "two");
 
-            await()
-                .pollInterval(Duration.ofMillis(10))
-                .atMost(Duration.ofSeconds(5)).untilAsserted(() -> assertThat(contextManager.numUpdates(contextNameOne)).isEqualTo(1));
-            await()
-                .pollInterval(Duration.ofMillis(10))
-                .atMost(Duration.ofSeconds(5)).untilAsserted(() -> assertThat(contextManager.numUpdates(contextNameTwo)).isEqualTo(1));
+            assertThat(contextManager.numUpdates(contextNameOne)).isEqualTo(1);
+            assertThat(contextManager.numUpdates(contextNameTwo)).isEqualTo(1);
 
-            assertContext(contextNameOne, contextNameOne, "one", "noPrevious");
-            assertContext(contextNameTwo, contextNameTwo, "two", "noPrevious");
+            assertContext(contextNameOne, contextNameOne, "one", "one", "noPrevious");
+            assertContext(contextNameTwo, contextNameTwo, "two", "two", "noPrevious");
         }
 
-        private void assertContext(String contextNameTwo, String stateValueOne, String stateValueTwo, String statePrevious) {
+        private void assertContext(String contextNameTwo, String stateValueOne, String stateValueTwoWithoutDefault, String stateValueTwoWithDefault, String statePrevious) {
             assertThat(contextManager.getContext(contextNameTwo))
                 .isPresent()
                 .hasValueSatisfying(it -> {
                         assertThat(it.getList()).isEmpty();
                         assertThat(it.getProperties())
-                            .hasSize(3)
+                            .hasSize(4)
                             .containsEntry("stateValueOne", stateValueOne)
-                            .containsEntry("stateValueTwo", stateValueTwo)
+                            .containsEntry("stateValueTwoWithoutDefault", stateValueTwoWithoutDefault)
+                            .containsEntry("stateValueTwoWithDefault", stateValueTwoWithDefault)
                             .containsEntry("previousStateValueTwo", statePrevious);
                     }
                 );
@@ -192,9 +238,7 @@ class RecordStateEventListenerTest extends AbstractTestBase {
 
             postRequest("list", contextName, "one");
 
-            await()
-                .pollInterval(Duration.ofMillis(10))
-                .atMost(Duration.ofSeconds(5)).untilAsserted(() -> assertThat(contextManager.numUpdates("last-" + contextName)).isEqualTo(1));
+            assertThat(contextManager.numUpdates("last-" + contextName)).isEqualTo(1);
 
             assertContext("last-" + contextName, 1, 0, contextName, "one");
             assertContext("first-" + contextName, 1, 0, contextName, "one");
@@ -206,13 +250,9 @@ class RecordStateEventListenerTest extends AbstractTestBase {
             var contextName = RandomStringUtils.randomAlphabetic(5);
 
             postRequest("list", contextName, "one");
-            await()
-                .pollInterval(Duration.ofMillis(10))
-                .atMost(Duration.ofSeconds(5)).untilAsserted(() -> assertThat(contextManager.numUpdates("last-" + contextName)).isEqualTo(1));
+            assertThat(contextManager.numUpdates("last-" + contextName)).isEqualTo(1);
             postRequest("list", contextName, "two");
-            await()
-                .pollInterval(Duration.ofMillis(10))
-                .atMost(Duration.ofSeconds(5)).untilAsserted(() -> assertThat(contextManager.numUpdates("last-" + contextName)).isEqualTo(2));
+            assertThat(contextManager.numUpdates("last-" + contextName)).isEqualTo(2);
 
             assertContext("last-" + contextName, 2, 0, contextName, "one");
             assertContext("last-" + contextName, 2, 1, contextName, "two");

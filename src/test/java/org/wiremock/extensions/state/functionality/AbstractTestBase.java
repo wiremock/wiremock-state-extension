@@ -60,6 +60,7 @@ public class AbstractTestBase {
     @BeforeEach
     void setupBase() {
         wm.resetAll();
+        contextManager.deleteAllContexts();
     }
 
     protected void assertContextNumUpdates(String context, int expected) {
