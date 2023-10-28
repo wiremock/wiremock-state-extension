@@ -14,6 +14,7 @@ plugins {
     id 'com.diffplug.spotless' version '6.22.0'
     id 'com.palantir.git-version' version '3.0.0'
     id 'com.github.johnrengelman.shadow' version '8.1.1'
+    id 'io.github.gradle-nexus.publish-plugin' version "1.0.0"
 }
 
 wrapper {
@@ -37,6 +38,11 @@ project.ext {
 project.archivesBaseName = "${baseArtifact}"
 configurations {
     standaloneOnly
+}
+
+java {
+    withSourcesJar()
+    withJavadocJar()
 }
 
 jar {
@@ -71,9 +77,27 @@ shadowJar {
     exclude 'handlebars-*.js'
 }
 
-group 'org.wiremock'
+group 'org.wiremock.extensions'
 
 version gitVersion()
+
+signing {
+    // Docs: https://github.com/wiremock/community/blob/main/infra/maven-central.md
+    required {
+        !version.toString().contains("SNAPSHOT") && (gradle.taskGraph.hasTask("uploadArchives") || gradle.taskGraph.hasTask("publish"))
+    }
+    def signingKey = providers
+        .environmentVariable("OSSRH_GPG_SECRET_KEY")
+        .forUseAtConfigurationTime()
+    def signingPassphrase = providers
+        .environmentVariable("OSSRH_GPG_SECRET_KEY_PASSWORD")
+        .forUseAtConfigurationTime()
+    if (signingKey.present && signingPassphrase.present) {
+        useInMemoryPgpKeys(signingKey.get(), signingPassphrase.get())
+        def extension = extensions.getByName("publishing") as PublishingExtension
+        sign(extension.publications)
+    }
+}
 
 publishing {
     repositories {
@@ -213,3 +237,23 @@ idea {
     }
 }
 
+nexusPublishing {
+    // See https://github.com/wiremock/community/blob/main/infra/maven-central.md
+    repositories {
+        sonatype {
+            nexusUrl = uri("https://oss.sonatype.org/service/local/")
+            snapshotRepositoryUrl = uri("https://oss.sonatype.org/content/repositories/snapshots/")
+
+            def ossrhUsername = providers
+                    .environmentVariable("OSSRH_USERNAME")
+                    .forUseAtConfigurationTime()
+            def ossrhPassword = providers
+                    .environmentVariable("OSSRH_TOKEN")
+                    .forUseAtConfigurationTime()
+            if (ossrhUsername.present && ossrhPassword.present) {
+                username = ossrhUsername.get()
+                password = ossrhPassword.get()
+            }
+        }
+    }
+}
