@@ -1,4 +1,6 @@
-# Testing docker
+# Extension development notes
+
+## Testing docker
 
 Build and start the container:
 
@@ -15,3 +17,10 @@ docker run -it --rm \
 wiremock/wiremock:3x \
 --global-response-templating
 ```
+
+## Releasing
+
+To release the module, go to [GitHub Releases](https://github.com/wiremock/wiremock-extension-state/releases) and
+issue the release using the changelog draft.
+The new release will trigger the [Release GitHub Action](https://github.com/wiremock/wiremock-extension-state/actions/workflows/release.yml)
+which will deploy the artifacts to Maven Central.
