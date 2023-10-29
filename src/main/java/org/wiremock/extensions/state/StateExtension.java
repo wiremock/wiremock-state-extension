@@ -37,14 +37,14 @@ import java.util.List;
  * <pre>{@code
  *     private static final Store<String, Object> store = new CaffeineStore();
  *
- *     @RegisterExtension
+ *     {@literal @}RegisterExtension
  *     public static WireMockExtension wm = WireMockExtension.newInstance()
  *         .options(
  *             wireMockConfig().dynamicPort().dynamicHttpsPort()
  *                 .extensions(new StateExtension(store))
  *         )
  *         .build();
- *         }
+ *      }
  * </pre>
  */
 public class StateExtension implements ExtensionFactory {
