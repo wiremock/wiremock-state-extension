@@ -89,8 +89,7 @@ signing {
     def signingKey = providers.environmentVariable("OSSRH_GPG_SECRET_KEY").get()
     def signingPassphrase = providers.environmentVariable("OSSRH_GPG_SECRET_KEY_PASSWORD").get()
     useInMemoryPgpKeys(signingKey, signingPassphrase)
-    def extension = extensions.getByName("publishing") as PublishingExtension
-    sign(extension.publications)
+    sign(publishing.publications)
 }
 
 publishing {
