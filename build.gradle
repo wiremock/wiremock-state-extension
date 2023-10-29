@@ -234,10 +234,10 @@ nexusPublishing {
     // See https://github.com/wiremock/community/blob/main/infra/maven-central.md
     repositories {
         sonatype {
-            nexusUrl = uri("https://oss.sonatype.org/service/local/")
-            snapshotRepositoryUrl = uri("https://oss.sonatype.org/content/repositories/snapshots/")
-            username = providers.environmentVariable("OSSRH_USERNAME").get()
-            password = providers.environmentVariable("OSSRH_TOKEN").get()
+            nexusUrl.set(uri("https://oss.sonatype.org/service/local/"))
+            snapshotRepositoryUrl.set(uri("https://oss.sonatype.org/content/repositories/snapshots/"))
+            username.set(providers.environmentVariable("OSSRH_USERNAME").get())
+            password.set(providers.environmentVariable("OSSRH_TOKEN").get())
         }
     }
 }
