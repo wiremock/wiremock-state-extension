@@ -204,9 +204,9 @@ add authentication to GitHub packages.
 
 <repositories>
     <repository>
-        <id>github-wiremock-extension-state</id>
+        <id>github-wiremock-state-extension</id>
         <name>WireMock Extension State Apache Maven Packages</name>
-        <url>https://maven.pkg.github.com/wiremock/wiremock-extension-state</url>
+        <url>https://maven.pkg.github.com/wiremock/wiremock-state-extension</url>
     </repository>
 </repositories>
 
