@@ -1,5 +1,9 @@
 # WireMock State extension
 
+[![GitHub release (latest by date)](https://img.shields.io/github/v/release/wiremock/wiremock-extension-state)](https://github.com/wiremock/wiremock-extension-state/releases)
+[![Slack](https://img.shields.io/badge/slack-slack.wiremock.org-brightgreen?style=flat&logo=slack)](https://slack.wiremock.org/)
+[![GitHub contributors](https://img.shields.io/github/contributors/wiremock/wiremock-extension-state)](https://github.com/wiremock/wiremock-extension-state/graphs/contributors)
+
 <p align="center">
     <a href="https://wiremock.org" target="_blank">
         <img width="512px" src="https://wiremock.org/images/logos/wiremock/logo_wide.svg" alt="WireMock Logo"/>
