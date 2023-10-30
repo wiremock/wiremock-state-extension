@@ -239,8 +239,8 @@ nexusPublishing {
             // TODO: allow configuring destinations for oss1
             // nexusUrl.set(uri("https://oss.sonatype.org/service/local/"))
             // snapshotRepositoryUrl.set(uri("https://oss.sonatype.org/content/repositories/snapshots/"))
-            username.set(providers.environmentVariable("OSSRH_USERNAME").get())
-            password.set(providers.environmentVariable("OSSRH_TOKEN").get())
+            username.set(providers.environmentVariable("OSSRH_USERNAME").orElse(null).get())
+            password.set(providers.environmentVariable("OSSRH_TOKEN").orElse(null).get())
         }
     }
 }
