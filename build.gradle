@@ -14,7 +14,7 @@ plugins {
     id 'com.diffplug.spotless' version '6.22.0'
     id 'com.palantir.git-version' version '3.0.0'
     id 'com.github.johnrengelman.shadow' version '8.1.1'
-    id 'io.github.gradle-nexus.publish-plugin' version "1.0.0"
+    id 'io.github.gradle-nexus.publish-plugin' version "1.1.0"
 }
 
 wrapper {
@@ -86,17 +86,10 @@ signing {
     required {
         !version.toString().contains("SNAPSHOT") && (gradle.taskGraph.hasTask("uploadArchives") || gradle.taskGraph.hasTask("publish"))
     }
-    def signingKey = providers
-        .environmentVariable("OSSRH_GPG_SECRET_KEY")
-        .forUseAtConfigurationTime()
-    def signingPassphrase = providers
-        .environmentVariable("OSSRH_GPG_SECRET_KEY_PASSWORD")
-        .forUseAtConfigurationTime()
-    if (signingKey.present && signingPassphrase.present) {
-        useInMemoryPgpKeys(signingKey.get(), signingPassphrase.get())
-        def extension = extensions.getByName("publishing") as PublishingExtension
-        sign(extension.publications)
-    }
+    def signingKey = providers.environmentVariable("OSSRH_GPG_SECRET_KEY").get()
+    def signingPassphrase = providers.environmentVariable("OSSRH_GPG_SECRET_KEY_PASSWORD").get()
+    useInMemoryPgpKeys(signingKey, signingPassphrase)
+    sign(publishing.publications)
 }
 
 publishing {
@@ -241,19 +234,11 @@ nexusPublishing {
     // See https://github.com/wiremock/community/blob/main/infra/maven-central.md
     repositories {
         sonatype {
-            nexusUrl = uri("https://oss.sonatype.org/service/local/")
-            snapshotRepositoryUrl = uri("https://oss.sonatype.org/content/repositories/snapshots/")
-
-            def ossrhUsername = providers
-                    .environmentVariable("OSSRH_USERNAME")
-                    .forUseAtConfigurationTime()
-            def ossrhPassword = providers
-                    .environmentVariable("OSSRH_TOKEN")
-                    .forUseAtConfigurationTime()
-            if (ossrhUsername.present && ossrhPassword.present) {
-                username = ossrhUsername.get()
-                password = ossrhPassword.get()
-            }
+            // TODO: allow configuring destinations for oss1
+            // nexusUrl.set(uri("https://oss.sonatype.org/service/local/"))
+            // snapshotRepositoryUrl.set(uri("https://oss.sonatype.org/content/repositories/snapshots/"))
+            username.set(providers.environmentVariable("OSSRH_USERNAME").get())
+            password.set(providers.environmentVariable("OSSRH_TOKEN").get())
         }
     }
 }
