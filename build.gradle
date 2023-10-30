@@ -86,8 +86,8 @@ signing {
     required {
         !version.toString().contains("SNAPSHOT") && (gradle.taskGraph.hasTask("uploadArchives") || gradle.taskGraph.hasTask("publish"))
     }
-    def signingKey = providers.environmentVariable("OSSRH_GPG_SECRET_KEY").orElse("")
-    def signingPassphrase = providers.environmentVariable("OSSRH_GPG_SECRET_KEY_PASSWORD").orElse("")
+    def signingKey = providers.environmentVariable("OSSRH_GPG_SECRET_KEY").orElse("").get()
+    def signingPassphrase = providers.environmentVariable("OSSRH_GPG_SECRET_KEY_PASSWORD").orElse("").get()
     if (!signingKey.isEmpty() && !signingPassphrase.isEmpty()) {
         useInMemoryPgpKeys(signingKey, signingPassphrase)
         sign(publishing.publications)
