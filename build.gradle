@@ -98,7 +98,7 @@ publishing {
     repositories {
         maven {
             name = "GitHubPackages"
-            url = "https://maven.pkg.github.com/wiremock/wiremock-extension-state"
+            url = "https://maven.pkg.github.com/wiremock/wiremock-state-extension"
             credentials {
                 username = System.getenv("GITHUB_ACTOR")
                 password = System.getenv("GITHUB_TOKEN")
@@ -121,13 +121,13 @@ publishing {
             pom {
                 name = "${baseArtifact}"
                 description = 'A WireMock extension to transfer state in between stubs'
-                url = 'https://github.com/dirkbolte/wiremock-extension-state'
+                url = 'https://github.com/wiremock/wiremock-state-extension'
 
 
                 scm {
-                    connection = 'https://github.com/dirkbolte/wiremock-extension-state.git'
-                    developerConnection = 'https://github.com/dirkbolte/wiremock-extension-state.git'
-                    url = 'https://github.com/dirkbolte/wiremock-extension-state.git'
+                    connection = 'https://github.com/wiremock/wiremock-state-extension.git'
+                    developerConnection = 'https://github.com/wiremock/wiremock-state-extension.git'
+                    url = 'https://github.com/wiremock/wiremock-state-extension.git'
                 }
 
                 licenses {
@@ -156,13 +156,13 @@ publishing {
 
                 name = "${baseArtifact}-standalone"
                 description = 'A WireMock extension to transfer state in between stubs - to be used with WireMock standalone'
-                url = 'https://github.com/dirkbolte/wiremock-extension-state'
+                url = 'https://github.com/wiremock/wiremock-state-extension'
 
 
                 scm {
-                    connection = 'https://github.com/dirkbolte/wiremock-extension-state.git'
-                    developerConnection = 'https://github.com/dirkbolte/wiremock-extension-state.git'
-                    url = 'https://github.com/dirkbolte/wiremock-extension-state.git'
+                    connection = 'https://github.com/wiremock/wiremock-state-extension.git'
+                    developerConnection = 'https://github.com/wiremock/wiremock-state-extension.git'
+                    url = 'https://github.com/wiremock/wiremock-state-extension.git'
                 }
 
                 licenses {
@@ -239,8 +239,12 @@ nexusPublishing {
             // TODO: allow configuring destinations for oss1
             // nexusUrl.set(uri("https://oss.sonatype.org/service/local/"))
             // snapshotRepositoryUrl.set(uri("https://oss.sonatype.org/content/repositories/snapshots/"))
-            username.set(providers.environmentVariable("OSSRH_USERNAME").orElse(null).get())
-            password.set(providers.environmentVariable("OSSRH_TOKEN").orElse(null).get())
+            def envUsername = providers.environmentVariable("OSSRH_USERNAME").orElse(null).get()
+            def envPassword = providers.environmentVariable("OSSRH_TOKEN").orElse(null).get()
+            if (envUsername != null && envPassword != null) {
+                username.set(envUsername)
+                password.set(envPassword)
+            }
         }
     }
 }

@@ -11,7 +11,7 @@ This is a demonstration of the WireMock State Extension, showcasing its initial 
 ## General Overview
 
 - **Watch the Demo Video**: [WireMock State Extension Demo Video](https://www.youtube.com/watch?v=OUrMEpzHbvY)
-- **View the Slides**: [WireMock State Extension Slides](https://github.com/wiremock/wiremock-extension-state/blob/develop/demo/wiremock_state_extension_webinar.pdf)
+- **View the Slides**: [WireMock State Extension Slides](https://github.com/wiremock/wiremock-state-extension/blob/develop/demo/wiremock_state_extension_webinar.pdf)
 
 ## Initial Feature Set: The State
 
@@ -83,8 +83,8 @@ Before you begin, ensure you have the following prerequisites installed on your 
 ### Step 1: Clone the WireMock State Extension Repository
 
 ```shell
-git clone https://github.com/wiremock/wiremock-extension-state.git
-cd wiremock-extension-state
+git clone https://github.com/wiremock/wiremock-state-extension.git
+cd wiremock-state-extension
 ```
 
 ### Step 2: Build the Project
