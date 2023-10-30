@@ -4,7 +4,7 @@
       <settings>
         <option name="imageTag" value="wiremock/wiremock:3x" />
         <option name="command" value="--global-response-templating --verbose" />
-        <option name="containerName" value="wiremock-extension-state-test" />
+        <option name="containerName" value="wiremock-state-extension-test" />
         <option name="portBindings">
           <list>
             <DockerPortBindingImpl>
