@@ -180,7 +180,7 @@ the `GET` won't have any knowledge of the previous post.
 
 ```groovy
 dependencies {
-    testImplementation("org.wiremock:wiremock-state-extension:<your-version>")
+    testImplementation("org.wiremock.extensions:wiremock-state-extension:<your-version>")
 }
 ```
 
@@ -189,7 +189,7 @@ dependencies {
 ```xml
 <dependencies>
   <dependency>
-    <groupId>org.wiremock</groupId>
+    <groupId>org.wiremock.extensions</groupId>
     <artifactId>wiremock-state-extension</artifactId>
     <version>your-version</version>
     <scope>test</scope>
@@ -217,7 +217,7 @@ repositories {
 
 
 dependencies {
-    testImplementation("org.wiremock:wiremock-state-extension:<your-version>")
+    testImplementation("org.wiremock.extensions:wiremock-state-extension:<your-version>")
 }
 ```
 
@@ -239,7 +239,7 @@ Use GitHub Packages in Maven
 
 <dependencies>
   <dependency>
-    <groupId>org.wiremock</groupId>
+    <groupId>org.wiremock.extensions</groupId>
     <artifactId>wiremock-state-extension</artifactId>
     <version>your-version</version>
     <scope>test</scope>
