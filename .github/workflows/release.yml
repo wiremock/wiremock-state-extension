@@ -27,9 +27,9 @@ jobs:
           echo "new_version=${NEW_VERSION}" >> $GITHUB_OUTPUT
 
       - name: Publish package
-        uses: gradle/gradle-build-action@v2
-        with:
-          arguments: -Pversion=${{ steps.new_version.outputs.new_version }} publish
+        id: publish_package
+        run: |
+          ./gradlew -Pversion=${{ steps.new_version.outputs.new_version }} publish closeAndReleaseStagingRepository
 
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
