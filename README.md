@@ -183,6 +183,36 @@ the `GET` won't have any knowledge of the previous post.
 ### Gradle
 
 ```groovy
+dependencies {
+    testImplementation("org.wiremock.extensions:wiremock-state-extension:<your-version>")
+}
+```
+
+### Maven
+
+```xml
+<dependencies>
+  <dependency>
+    <groupId>org.wiremock.extensions</groupId>
+    <artifactId>wiremock-state-extension</artifactId>
+    <version>your-version</version>
+    <scope>test</scope>
+  </dependency>
+</dependencies>
+```
+
+### GitHub Packages
+
+You can also install the dependencies from GitHub Packages.
+Follow the instructions on [GitHub Docs](https://docs.github.com/en/packages/working-with-a-github-packages-registry/working-with-the-apache-maven-registry) to
+add authentication to GitHub packages.
+
+<details>
+<summary>
+Use GitHub Packages in Gradle
+</summary>
+
+```groovy
 repositories {
     maven {
         url = uri("https://maven.pkg.github.com/wiremock/wiremock-extension-state")
@@ -191,15 +221,16 @@ repositories {
 
 
 dependencies {
-    testImplementation("org.wiremock:wiremock-state-extension:<your-version>")
+    testImplementation("org.wiremock.extensions:wiremock-state-extension:<your-version>")
 }
 ```
 
-### Maven
-
-Follow the instructions on [GitHub Docs](https://docs.github.com/en/packages/working-with-a-github-packages-registry/working-with-the-apache-maven-registry) to
-add authentication to GitHub packages.
-
+</details>
+    
+<details>
+<summary>
+Use GitHub Packages in Maven
+</summary>
 ```xml
 
 <repositories>
@@ -211,14 +242,16 @@ add authentication to GitHub packages.
 </repositories>
 
 <dependencies>
-<dependency>
-    <groupId>org.wiremock</groupId>
+  <dependency>
+    <groupId>org.wiremock.extensions</groupId>
     <artifactId>wiremock-state-extension</artifactId>
     <version>your-version</version>
     <scope>test</scope>
-</dependency>
+  </dependency>
 </dependencies>
 ```
+
+</details>
 
 ## Register extension
 
