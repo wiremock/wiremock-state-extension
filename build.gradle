@@ -94,19 +94,6 @@ signing {
     }
 }
 
-task checkReleasePreconditions {
-  doLast {
-    def REQUIRED_GIT_BRANCH = 'develop'
-    def currentGitBranch = 'git rev-parse --abbrev-ref HEAD'.execute().text.trim()
-    assert currentGitBranch == REQUIRED_GIT_BRANCH, "Must be on the $REQUIRED_GIT_BRANCH branch in order to release to Sonatype"
-  }
-}
-publish.dependsOn checkReleasePreconditions
-project.tasks.publishMavenJavaPublicationToMavenLocal.dependsOn 'signStandaloneJarPublication'
-project.tasks.publishStandaloneJarPublicationToMavenLocal.dependsOn 'signMavenJavaPublication'
-project.tasks.publishMavenJavaPublicationToMavenRepository.dependsOn 'signStandaloneJarPublication'
-project.tasks.publishStandaloneJarPublicationToMavenRepository.dependsOn 'signMavenJavaPublication'
-
 publishing {
     repositories {
         maven {
@@ -201,6 +188,15 @@ publishing {
     }
 }
 
+task checkReleasePreconditions {
+  doLast {
+    def REQUIRED_GIT_BRANCH = 'develop'
+    def currentGitBranch = 'git rev-parse --abbrev-ref HEAD'.execute().text.trim()
+    assert currentGitBranch == REQUIRED_GIT_BRANCH, "Must be on the $REQUIRED_GIT_BRANCH branch in order to release to Sonatype"
+  }
+}
+publish.dependsOn checkReleasePreconditions
+
 repositories {
     mavenCentral()
     mavenLocal()
@@ -264,3 +260,10 @@ nexusPublishing {
         }
     }
 }
+
+project.tasks.publishMavenJavaPublicationToMavenLocal.dependsOn 'signStandaloneJarPublication'
+project.tasks.publishStandaloneJarPublicationToMavenLocal.dependsOn 'signMavenJavaPublication'
+//project.tasks.publishMavenJavaPublicationToSonatypeRepository.dependsOn 'signStandaloneJarPublication'
+//project.tasks.publishStandaloneJarPublicationToSonatypeRepository.dependsOn 'signMavenJavaPublication'
+//project.tasks.publishMavenJavaPublicationToGitHubPackagesRepository.dependsOn 'signStandaloneJarPublication'
+//project.tasks.publishStandaloneJarPublicationToGitHubPackagesRepository.dependsOn 'signMavenJavaPublication'
