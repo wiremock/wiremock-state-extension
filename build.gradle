@@ -199,6 +199,12 @@ publish.dependsOn checkReleasePreconditions
 publish.dependsOn 'signStandaloneJarPublication'
 publish.dependsOn 'signMavenJavaPublication'
 
+// FIXME: remove after https://github.com/gradle/gradle/issues/26091
+tasks.withType(AbstractPublishToMaven).configureEach {
+  def signingTasks = tasks.withType(Sign)
+  mustRunAfter(signingTasks)
+}
+
 repositories {
     mavenCentral()
     mavenLocal()
