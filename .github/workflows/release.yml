@@ -28,8 +28,9 @@ jobs:
 
       - name: Publish package
         id: publish_package
-        run: |
-          ./gradlew -Pversion=${{ steps.new_version.outputs.new_version }} publish closeAndReleaseStagingRepository
+        uses: gradle/gradle-build-action@v2.9.0
+        with:
+          arguments: -Pversion=${{ steps.new_version.outputs.new_version }} publish closeAndReleaseStagingRepository
 
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

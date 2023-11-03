@@ -188,6 +188,17 @@ publishing {
     }
 }
 
+task checkReleasePreconditions {
+  doLast {
+    def REQUIRED_GIT_BRANCH = 'develop'
+    def currentGitBranch = 'git rev-parse --abbrev-ref HEAD'.execute().text.trim()
+    assert currentGitBranch == REQUIRED_GIT_BRANCH, "Must be on the $REQUIRED_GIT_BRANCH branch in order to release to Sonatype"
+  }
+}
+publish.dependsOn checkReleasePreconditions
+publish.dependsOn 'signStandaloneJarPublication'
+publish.dependsOn 'signMavenJavaPublication'
+
 repositories {
     mavenCentral()
     mavenLocal()
@@ -251,3 +262,4 @@ nexusPublishing {
         }
     }
 }
+
