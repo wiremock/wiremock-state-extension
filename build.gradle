@@ -152,6 +152,9 @@ publishing {
 
             project.shadow.component(publication)
 
+            artifact sourcesJar
+            artifact javadocJar
+
             pom {
 
                 name = "${baseArtifact}-standalone"
