@@ -1,5 +1,9 @@
 # WireMock State extension
 
+[![GitHub release (latest by date)](https://img.shields.io/github/v/release/wiremock/wiremock-state-extension)](https://github.com/wiremock/wiremock-state-extension/releases)
+[![Slack](https://img.shields.io/badge/slack-slack.wiremock.org-brightgreen?style=flat&logo=slack)](https://slack.wiremock.org/)
+[![GitHub contributors](https://img.shields.io/github/contributors/wiremock/wiremock-state-extension)](https://github.com/wiremock/wiremock-state-extension/graphs/contributors)
+
 <p align="center">
     <a href="https://wiremock.org" target="_blank">
         <img width="512px" src="https://wiremock.org/images/logos/wiremock/logo_wide.svg" alt="WireMock Logo"/>
@@ -168,7 +172,7 @@ the `GET` won't have any knowledge of the previous post.
 
 ## Compatibility matrix
 
-| `wiremock-extension-state` version | `WireMock` version |
+| `wiremock-state-extension` version | `WireMock` version |
 |------------------------------------|--------------------|
 | `0.0.3`+                           | `3.0.0-beta-11`+   |
 | `0.0.6`+                           | `3.0.0-beta-14`+   |
@@ -231,9 +235,9 @@ Use GitHub Packages in Maven
 
 <repositories>
     <repository>
-        <id>github-wiremock-extension-state</id>
+        <id>github-wiremock-state-extension</id>
         <name>WireMock Extension State Apache Maven Packages</name>
-        <url>https://maven.pkg.github.com/wiremock/wiremock-extension-state</url>
+        <url>https://maven.pkg.github.com/wiremock/wiremock-state-extension</url>
     </repository>
 </repositories>
 
