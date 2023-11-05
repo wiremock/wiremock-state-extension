@@ -18,59 +18,33 @@ package org.wiremock.extensions.state.functionality;
 import com.github.tomakehurst.wiremock.client.WireMock;
 import com.github.tomakehurst.wiremock.extension.Parameters;
 import io.restassured.http.ContentType;
-import org.apache.commons.lang3.RandomStringUtils;
 import org.apache.http.HttpStatus;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.DynamicTest;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestFactory;
 
 import java.net.URI;
-import java.net.URISyntaxException;
-import java.time.Duration;
-import java.util.LinkedList;
+import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.function.Consumer;
+import java.util.stream.Collectors;
 
 import static com.github.tomakehurst.wiremock.client.WireMock.get;
 import static com.github.tomakehurst.wiremock.client.WireMock.urlPathMatching;
 import static io.restassured.RestAssured.given;
-import static java.time.Duration.ofSeconds;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.awaitility.Awaitility.await;
+import static org.assertj.core.api.InstanceOfAssertFactories.MAP;
+import static org.assertj.core.api.InstanceOfAssertFactories.STRING;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 
 class DeleteStateEventListenerTest extends AbstractTestBase {
-
-    @BeforeEach
-    void setup() {
-        createGetStubState();
-        createGetStubList();
-        createPostStub();
-    }
-
-    private void getRequest(String path, String context) throws URISyntaxException {
-        given()
-            .accept(ContentType.JSON)
-            .get(new URI(String.format("%s/%s/%s", wm.getRuntimeInfo().getHttpBaseUrl(), path, context)))
-            .then()
-            .statusCode(HttpStatus.SC_OK)
-            .extract()
-            .body()
-            .jsonPath().get("value");
-    }
-
-    private void postRequest(String path, String contextName, String contextValueTwo) throws URISyntaxException {
-        given()
-            .accept(ContentType.JSON)
-            .body(Map.of("contextValueOne", contextName))
-            .body(Map.of("contextValueTwo", contextValueTwo))
-            .post(new URI(wm.getRuntimeInfo().getHttpBaseUrl() + "/" + path + "/" + contextName))
-            .then()
-            .statusCode(HttpStatus.SC_OK);
-    }
-
-    private void createPostStub() {
+    private void createPostStub(Map<String, Object> configuration) {
         wm.stubFor(
-            WireMock.post(urlPathMatching("/state/[^/]+"))
+            WireMock.post(urlPathMatching("/state"))
                 .willReturn(
                     WireMock.ok()
                         .withHeader("content-type", "application/json")
@@ -80,17 +54,17 @@ class DeleteStateEventListenerTest extends AbstractTestBase {
                     "recordState",
                     Parameters.from(
                         Map.of(
-                            "context", "{{request.pathSegments.[1]}}",
-                            "state", Map.of(
-                                "stateValueOne", "{{jsonPath request.body '$.contextValueOne'}}",
-                                "stateValueTwo", "{{jsonPath request.body '$.contextValueTwo'}}"
-                            )
+                            "context", "{{jsonPath request.body '$.contextName'}}",
+                            "state", configuration
                         )
                     )
                 )
         );
+    }
+
+    private void createPostStubList(Map<String, Object> configuration) {
         wm.stubFor(
-            WireMock.post(urlPathMatching("/list/[^/]+"))
+            WireMock.post(urlPathMatching("/state"))
                 .willReturn(
                     WireMock.ok()
                         .withHeader("content-type", "application/json")
@@ -100,19 +74,14 @@ class DeleteStateEventListenerTest extends AbstractTestBase {
                     "recordState",
                     Parameters.from(
                         Map.of(
-                            "context", "{{request.pathSegments.[1]}}",
-                            "list", Map.of(
-                                "addLast", Map.of(
-                                    "stateValueOne", "{{jsonPath request.body '$.contextValueOne'}}",
-                                    "stateValueTwo", "{{jsonPath request.body '$.contextValueTwo'}}"
-                                )
-                            )
+                            "context", "{{jsonPath request.body '$.contextName'}}",
+                            "list", Map.of("addLast", configuration)
                         )
                     )
                 ));
     }
 
-    private void createGetStubState() {
+    private void createGetStub(Map<String, Object> configuration) {
         wm.stubFor(
             get(urlPathMatching("/state/[^/]+"))
                 .willReturn(
@@ -122,19 +91,14 @@ class DeleteStateEventListenerTest extends AbstractTestBase {
                 )
                 .withServeEventListener(
                     "deleteState",
-                    Parameters.from(
-                        Map.of(
-                            "context", "{{request.pathSegments.[1]}}"
-                        )
-                    )
+                    Parameters.from(configuration)
                 )
-
         );
     }
 
-    private void createGetStubList() {
+    private void createGetStubList(Map<String, Object> configuration) {
         wm.stubFor(
-            get(urlPathMatching("/list/deleteFirst/[^/]+"))
+            get(urlPathMatching("/state/[^/]+(/[^/]+)?"))
                 .willReturn(
                     WireMock.ok()
                         .withHeader("content-type", "application/json")
@@ -144,284 +108,877 @@ class DeleteStateEventListenerTest extends AbstractTestBase {
                     "deleteState",
                     Parameters.from(
                         Map.of(
-                            "context", "{{request.pathSegments.[2]}}",
-                            "list", Map.of("deleteFirst", true)
-                        )
-                    )
-                )
-        );
-        wm.stubFor(
-            get(urlPathMatching("/list/deleteLast/[^/]+"))
-                .willReturn(
-                    WireMock.ok()
-                        .withHeader("content-type", "application/json")
-                        .withBody("{}")
-                )
-                .withServeEventListener(
-                    "deleteState",
-                    Parameters.from(
-                        Map.of(
-                            "context", "{{request.pathSegments.[2]}}",
-                            "list", Map.of("deleteLast", true)
-                        )
-                    )
-                )
-        );
-        wm.stubFor(
-            get(urlPathMatching("/list/deleteIndex/[^/]+/[^/]+"))
-                .willReturn(
-                    WireMock.ok()
-                        .withHeader("content-type", "application/json")
-                        .withBody("{}")
-                )
-                .withServeEventListener(
-                    "deleteState",
-                    Parameters.from(
-                        Map.of(
-                            "context", "{{request.pathSegments.[3]}}",
-                            "list", Map.of("deleteIndex", "{{request.pathSegments.[2]}}")
-                        )
-                    )
-                )
-        );
-        wm.stubFor(
-            get(urlPathMatching("/list/deleteWhere/[^/]+/[^/]+"))
-                .willReturn(
-                    WireMock.ok()
-                        .withHeader("content-type", "application/json")
-                        .withBody("{}")
-                )
-                .withServeEventListener(
-                    "deleteState",
-                    Parameters.from(
-                        Map.of(
-                            "context", "{{request.pathSegments.[3]}}",
-                            "list", Map.of("deleteWhere", Map.of(
-                                    "property", "{{join 'state' 'Value' 'Two' ''}}",
-                                    "value", "{{request.pathSegments.[2]}}"
-                                )
-                            )
+                            "context", "{{request.pathSegments.[1]}}",
+                            "list", configuration
                         )
                     )
                 )
         );
     }
 
+    private void postContext(String contextName, Map<String, Object> body) {
+        var preparedBody = new HashMap<>(body);
+        preparedBody.put("contextName", contextName);
+        given()
+            .contentType(ContentType.JSON)
+            .body(preparedBody)
+            .post(assertDoesNotThrow(() -> new URI(String.format("%s/%s", wm.getRuntimeInfo().getHttpBaseUrl(), "state"))))
+            .then()
+            .statusCode(HttpStatus.SC_OK);
+    }
+
+    private void getContext(String contextName, int status, Consumer<Map<String, Object>> assertion) {
+        var response = given()
+            .accept(ContentType.JSON)
+            .get(assertDoesNotThrow(() -> new URI(String.format("%s/%s/%s", wm.getRuntimeInfo().getHttpBaseUrl(), "state", contextName))))
+            .then()
+            .statusCode(status);
+        if (assertion != null) {
+            Map<String, Object> result = response.extract().body().as(mapper.getTypeFactory().constructMapType(HashMap.class, String.class, Object.class));
+            assertion.accept(result);
+        }
+    }
+
+    @DisplayName("with existing contexts")
     @Nested
-    public class State {
+    public class existingContext {
 
-        @Test
-        void test_unknownContext_noOtherContext_ok() throws URISyntaxException {
-            var context = RandomStringUtils.randomAlphabetic(5);
+        @DisplayName("when deleting list entries")
+        @Nested
+        public class DeletingList {
 
-            getRequest("state", context);
+            private final String contextName = "aContextOne";
+            private final String property = "listValue";
+            private final String valueOne = "listValueOne";
+            private final String valueTwo = "listValueTwo";
+            private final String valueThree = "listValueThree";
 
-            await()
-                .pollInterval(Duration.ofMillis(10))
-                .atMost(Duration.ofSeconds(5)).untilAsserted(() -> assertThat(contextManager.getContext(context)).isEmpty());
-        }
+            @BeforeEach
+            public void setup() {
+                createPostStubList(Map.of(property, "{{jsonPath request.body '$.listValue'}}"));
+                postContext(contextName, Map.of(property, valueOne));
+                postContext(contextName, Map.of(property, valueTwo));
+                postContext(contextName, Map.of(property, valueThree));
+                assertThat(contextManager.getContext(contextName))
+                    .isPresent()
+                    .hasValueSatisfying((context) -> {
+                        assertThat(context.getList()).hasSize(3);
+                        assertThat(context.getList().get(0)).containsEntry(property, valueOne);
+                        assertThat(context.getList().get(1)).containsEntry(property, valueTwo);
+                        assertThat(context.getList().get(2)).containsEntry(property, valueThree);
+                    });
+            }
 
-        @Test
-        void test_unknownContext_otherContext_ok() throws URISyntaxException {
-            var context = RandomStringUtils.randomAlphabetic(5);
-            var otherContext = RandomStringUtils.randomAlphabetic(5);
+            @DisplayName("with deleteFirst")
+            @Nested
+            public class DeleteFirst {
 
-            postRequest("state", otherContext, "one");
-            getRequest("state", context);
-
-            await()
-                .pollInterval(Duration.ofMillis(10))
-                .atMost(Duration.ofSeconds(5)).untilAsserted(() -> assertThat(contextManager.getContext(context)).isEmpty());
-            await()
-                .pollInterval(Duration.ofMillis(10))
-                .atMost(Duration.ofSeconds(5)).untilAsserted(() -> assertThat(contextManager.getContext(otherContext)).isPresent());
-        }
-
-        @Test
-        void test_knownContext_noOtherContext_ok() throws URISyntaxException {
-            var context = RandomStringUtils.randomAlphabetic(5);
-
-            postRequest("state", context, "one");
-            await()
-                .pollInterval(Duration.ofMillis(10))
-                .atMost(Duration.ofSeconds(5)).untilAsserted(() -> assertThat(contextManager.getContext(context)).isPresent());
-
-            getRequest("state", context);
-            await()
-                .pollInterval(Duration.ofMillis(10))
-                .atMost(Duration.ofSeconds(5)).untilAsserted(() -> assertThat(contextManager.getContext(context)).isEmpty());
-        }
-
-        @Test
-        void test_knownContext_withOtherContext_ok() throws URISyntaxException {
-            var context = RandomStringUtils.randomAlphabetic(5);
-            var otherContext = RandomStringUtils.randomAlphabetic(5);
-
-            postRequest("state", context, "one");
-            postRequest("state", otherContext, "one");
-
-            await()
-                .pollInterval(Duration.ofMillis(10))
-                .atMost(Duration.ofSeconds(5)).untilAsserted(() -> assertThat(contextManager.getContext(context)).isPresent());
-            await()
-                .pollInterval(Duration.ofMillis(10))
-                .atMost(Duration.ofSeconds(5)).untilAsserted(() -> assertThat(contextManager.getContext(otherContext)).isPresent());
-
-            getRequest("state", context);
-            await()
-                .pollInterval(Duration.ofMillis(10))
-                .atMost(Duration.ofSeconds(5)).untilAsserted(() -> assertThat(contextManager.getContext(context)).isEmpty());
-            await()
-                .pollInterval(Duration.ofMillis(10))
-                .atMost(Duration.ofSeconds(5)).untilAsserted(() -> assertThat(contextManager.getContext(otherContext)).isPresent());
-        }
-
-    }
-
-    @Nested
-    public class List {
-        @Test
-        void test_unknownContext_noOtherContext_ok() throws URISyntaxException {
-            var context = RandomStringUtils.randomAlphabetic(5);
-
-            getRequest("list/deleteFirst", context);
-
-            await()
-                .pollInterval(Duration.ofMillis(10))
-                .atMost(Duration.ofSeconds(5))
-                .untilAsserted(() ->
-                    assertThat(contextManager.getContext(context))
-                        .isPresent()
-                        .hasValueSatisfying(it -> assertThat(it.getList()).isEmpty())
-                );
-        }
-
-        @Test
-        void test_deleteFirst_ok() throws URISyntaxException {
-            var contextName = RandomStringUtils.randomAlphabetic(5);
-
-            postRequest("list", contextName, "one");
-            postRequest("list", contextName, "two");
-
-            getRequest("list/deleteFirst", contextName);
-
-            assertList(contextName,
-                list ->
-                    assertThat(list)
-                        .hasSize(1)
-                        .first()
-                        .satisfies(it -> assertThat(it).containsEntry("stateValueTwo", "two"))
-            );
-        }
-
-        @Test
-        void test_deleteLast_ok() throws URISyntaxException {
-            var contextName = RandomStringUtils.randomAlphabetic(5);
-
-            postRequest("list", contextName, "one");
-            postRequest("list", contextName, "two");
-
-            getRequest("list/deleteLast", contextName);
-
-            assertList(contextName,
-                list ->
-                    assertThat(list)
-                        .hasSize(1)
-                        .first()
-                        .satisfies(it -> assertThat(it).containsEntry("stateValueTwo", "one"))
-            );
-        }
-
-        @Test
-        void test_deleteIndex_middle_ok() throws URISyntaxException {
-            var contextName = RandomStringUtils.randomAlphabetic(5);
-
-            postRequest("list", contextName, "one");
-            postRequest("list", contextName, "two");
-            postRequest("list", contextName, "three");
-            assertList(contextName, list -> assertThat(list).hasSize(3));
-
-            getRequest("list/deleteIndex/1", contextName);
-
-            assertList(contextName,
-                list -> {
-                    assertThat(list).hasSize(2);
-                    assertThat(list.get(0)).containsEntry("stateValueTwo", "one");
-                    assertThat(list.get(1)).containsEntry("stateValueTwo", "three");
+                @BeforeEach
+                public void setup() {
+                    createGetStubList(Map.of("deleteFirst", true));
                 }
-            );
-        }
 
-        @Test
-        void test_deleteIndex_last_ok() throws URISyntaxException {
-            var contextName = RandomStringUtils.randomAlphabetic(5);
+                @DisplayName("deletes first entry")
+                @Test
+                void test_deleteFirstOne() {
+                    getContext(contextName, HttpStatus.SC_OK, (result) -> assertThat(result).isEmpty());
 
-            postRequest("list", contextName, "one");
-            postRequest("list", contextName, "two");
-            postRequest("list", contextName, "three");
-            assertList(contextName, list -> assertThat(list).hasSize(3));
-
-            getRequest("list/deleteIndex/2", contextName);
-
-            assertList(contextName,
-                list -> {
-                    assertThat(list).hasSize(2);
-                    assertThat(list.get(0)).containsEntry("stateValueTwo", "one");
-                    assertThat(list.get(1)).containsEntry("stateValueTwo", "two");
-                }
-            );
-        }
-
-        @Test
-        void test_deleteWhere_middle_ok() throws URISyntaxException {
-            var contextName = RandomStringUtils.randomAlphabetic(5);
-
-            postRequest("list", contextName, "one");
-            postRequest("list", contextName, "two");
-            postRequest("list", contextName, "three");
-            assertList(contextName, list -> assertThat(list).hasSize(3));
-
-            getRequest("list/deleteWhere/two", contextName);
-
-            assertList(contextName,
-                list -> {
-                    assertThat(list).hasSize(2);
-                    assertThat(list.get(0)).containsEntry("stateValueTwo", "one");
-                    assertThat(list.get(1)).containsEntry("stateValueTwo", "three");
-                }
-            );
-        }
-
-        @Test
-        void test_deleteWhere_last_ok() throws URISyntaxException {
-            var contextName = RandomStringUtils.randomAlphabetic(5);
-
-            postRequest("list", contextName, "one");
-            postRequest("list", contextName, "two");
-            postRequest("list", contextName, "three");
-            assertList(contextName, list -> assertThat(list).hasSize(3));
-
-            getRequest("list/deleteWhere/three", contextName);
-
-            assertList(contextName,
-                list -> {
-                    assertThat(list).hasSize(2);
-                    assertThat(list.get(0)).containsEntry("stateValueTwo", "one");
-                    assertThat(list.get(1)).containsEntry("stateValueTwo", "two");
-                }
-            );
-        }
-
-        private void assertList(String contextName, Consumer<LinkedList<Map<String, String>>> consumer) {
-            await()
-                .pollInterval(Duration.ofMillis(10))
-                .atMost(ofSeconds(5))
-                .untilAsserted(() ->
                     assertThat(contextManager.getContext(contextName))
                         .isPresent()
-                        .hasValueSatisfying(context -> consumer.accept(context.getList()))
-                );
+                        .hasValueSatisfying((context) -> assertThat(context.getList()).noneSatisfy(it -> assertThat(it).containsEntry(property, valueOne)));
+                }
+
+                @DisplayName("does not delete other entries")
+                @Test
+                void test_doesNotDeleteOther() {
+                    getContext(contextName, HttpStatus.SC_OK, (result) -> assertThat(result).isEmpty());
+
+                    assertThat(contextManager.getContext(contextName))
+                        .isPresent()
+                        .hasValueSatisfying((context) -> {
+                            assertThat(context.getList()).hasSize(2);
+                            assertThat(context.getList().get(0)).containsEntry(property, valueTwo);
+                            assertThat(context.getList().get(1)).containsEntry(property, valueThree);
+                        });
+                }
+
+                @DisplayName("can delete all entries")
+                @Test
+                void test_canDeleteAll() {
+                    getContext(contextName, HttpStatus.SC_OK, (result) -> assertThat(result).isEmpty());
+                    getContext(contextName, HttpStatus.SC_OK, (result) -> assertThat(result).isEmpty());
+                    getContext(contextName, HttpStatus.SC_OK, (result) -> assertThat(result).isEmpty());
+
+                    assertThat(contextManager.getContext(contextName))
+                        .isPresent()
+                        .hasValueSatisfying((context) -> assertThat(context.getList()).isEmpty());
+                }
+
+                @DisplayName("can delete re-added entries")
+                @Test
+                void test_canDeleteReAdded() {
+                    String valueFour = "listValueFour";
+                    getContext(contextName, HttpStatus.SC_OK, (result) -> assertThat(result).isEmpty());
+                    getContext(contextName, HttpStatus.SC_OK, (result) -> assertThat(result).isEmpty());
+                    getContext(contextName, HttpStatus.SC_OK, (result) -> assertThat(result).isEmpty());
+
+                    postContext(contextName, Map.of(property, valueTwo));
+                    postContext(contextName, Map.of(property, valueFour));
+
+                    assertThat(contextManager.getContext(contextName))
+                        .isPresent()
+                        .hasValueSatisfying((context) -> {
+                            assertThat(context.getList()).hasSize(2);
+                            assertThat(context.getList().get(0)).containsEntry(property, valueTwo);
+                            assertThat(context.getList().get(1)).containsEntry(property, valueFour);
+                        });
+                }
+            }
+
+            @DisplayName("with deleteLast")
+            @Nested
+            public class DeleteLast {
+
+                @BeforeEach
+                public void setup() {
+                    createGetStubList(Map.of("deleteLast", true));
+                }
+
+                @DisplayName("deletes last entry")
+                @Test
+                void test_deleteLastOne() {
+                    getContext(contextName, HttpStatus.SC_OK, (result) -> assertThat(result).isEmpty());
+
+                    assertThat(contextManager.getContext(contextName))
+                        .isPresent()
+                        .hasValueSatisfying((context) -> assertThat(context.getList()).noneSatisfy(it -> assertThat(it).containsEntry(property, valueThree)));
+                }
+
+                @DisplayName("does not delete other entries")
+                @Test
+                void test_doesNotDeleteOther() {
+                    getContext(contextName, HttpStatus.SC_OK, (result) -> assertThat(result).isEmpty());
+
+                    assertThat(contextManager.getContext(contextName))
+                        .isPresent()
+                        .hasValueSatisfying((context) -> {
+                            assertThat(context.getList()).hasSize(2);
+                            assertThat(context.getList().get(0)).containsEntry(property, valueOne);
+                            assertThat(context.getList().get(1)).containsEntry(property, valueTwo);
+                        });
+                }
+
+                @DisplayName("can delete all entries")
+                @Test
+                void test_canDeleteAll() {
+                    getContext(contextName, HttpStatus.SC_OK, (result) -> assertThat(result).isEmpty());
+                    getContext(contextName, HttpStatus.SC_OK, (result) -> assertThat(result).isEmpty());
+                    getContext(contextName, HttpStatus.SC_OK, (result) -> assertThat(result).isEmpty());
+
+                    assertThat(contextManager.getContext(contextName))
+                        .isPresent()
+                        .hasValueSatisfying((context) -> assertThat(context.getList()).isEmpty());
+                }
+
+                @DisplayName("can delete re-added entries")
+                @Test
+                void test_canDeleteReAdded() {
+                    String valueFour = "listValueFour";
+                    getContext(contextName, HttpStatus.SC_OK, (result) -> assertThat(result).isEmpty());
+                    getContext(contextName, HttpStatus.SC_OK, (result) -> assertThat(result).isEmpty());
+                    getContext(contextName, HttpStatus.SC_OK, (result) -> assertThat(result).isEmpty());
+
+                    postContext(contextName, Map.of(property, valueTwo));
+                    postContext(contextName, Map.of(property, valueFour));
+
+                    assertThat(contextManager.getContext(contextName))
+                        .isPresent()
+                        .hasValueSatisfying((context) -> {
+                            assertThat(context.getList()).hasSize(2);
+                            assertThat(context.getList().get(0)).containsEntry(property, valueTwo);
+                            assertThat(context.getList().get(1)).containsEntry(property, valueFour);
+                        });
+                }
+            }
+
+            @DisplayName("with deleteIndex")
+            @Nested
+            public class DeleteIndex {
+
+                @BeforeEach
+                public void setup() {
+                    createGetStubList(Map.of("deleteIndex", "{{request.pathSegments.[2]}}"));
+                }
+
+                @DisplayName("can delete first entry")
+                @Test
+                void test_deleteIndexZero() {
+                    getContext(contextName + "/0", HttpStatus.SC_OK, (result) -> assertThat(result).isEmpty());
+
+                    assertThat(contextManager.getContext(contextName))
+                        .isPresent()
+                        .hasValueSatisfying((context) -> assertThat(context.getList()).noneSatisfy(it -> assertThat(it).containsEntry(property, valueOne)));
+                }
+
+                @DisplayName("can delete middle entry")
+                @Test
+                void test_deleteIndexOne() {
+                    getContext(contextName + "/1", HttpStatus.SC_OK, (result) -> assertThat(result).isEmpty());
+
+                    assertThat(contextManager.getContext(contextName))
+                        .isPresent()
+                        .hasValueSatisfying((context) -> assertThat(context.getList()).noneSatisfy(it -> assertThat(it).containsEntry(property, valueTwo)));
+                }
+
+                @DisplayName("can delete last entry")
+                @Test
+                void test_deleteIndexTwo() {
+                    getContext(contextName + "/2", HttpStatus.SC_OK, (result) -> assertThat(result).isEmpty());
+
+                    assertThat(contextManager.getContext(contextName))
+                        .isPresent()
+                        .hasValueSatisfying((context) -> assertThat(context.getList()).noneSatisfy(it -> assertThat(it).containsEntry(property, valueThree)));
+                }
+
+
+                @DisplayName("does not delete other entries")
+                @Test
+                void test_doesNotDeleteOther() {
+                    getContext(contextName + "/1", HttpStatus.SC_OK, (result) -> assertThat(result).isEmpty());
+
+
+                    assertThat(contextManager.getContext(contextName))
+                        .isPresent()
+                        .hasValueSatisfying((context) -> {
+                            assertThat(context.getList()).hasSize(2);
+                            assertThat(context.getList().get(0)).containsEntry(property, valueOne);
+                            assertThat(context.getList().get(1)).containsEntry(property, valueThree);
+                        });
+                }
+
+                @DisplayName("can delete all entries")
+                @Test
+                void test_canDeleteAll() {
+                    getContext(contextName + "/2", HttpStatus.SC_OK, (result) -> assertThat(result).isEmpty());
+                    getContext(contextName + "/1", HttpStatus.SC_OK, (result) -> assertThat(result).isEmpty());
+                    getContext(contextName + "/0", HttpStatus.SC_OK, (result) -> assertThat(result).isEmpty());
+
+                    assertThat(contextManager.getContext(contextName))
+                        .isPresent()
+                        .hasValueSatisfying((context) -> assertThat(context.getList()).isEmpty());
+                }
+
+                @DisplayName("can delete re-added entries")
+                @Test
+                void test_canDeleteReAdded() {
+                    String valueFour = "listValueFour";
+                    getContext(contextName + "/2", HttpStatus.SC_OK, (result) -> assertThat(result).isEmpty());
+                    getContext(contextName + "/1", HttpStatus.SC_OK, (result) -> assertThat(result).isEmpty());
+                    getContext(contextName + "/0", HttpStatus.SC_OK, (result) -> assertThat(result).isEmpty());
+
+                    postContext(contextName, Map.of(property, valueTwo));
+                    postContext(contextName, Map.of(property, valueFour));
+
+                    assertThat(contextManager.getContext(contextName))
+                        .isPresent()
+                        .hasValueSatisfying((context) -> {
+                            assertThat(context.getList()).hasSize(2);
+                            assertThat(context.getList().get(0)).containsEntry(property, valueTwo);
+                            assertThat(context.getList().get(1)).containsEntry(property, valueFour);
+                        });
+                }
+            }
+
+            @DisplayName("with deleteWhere")
+            @Nested
+            public class DeleteWhere {
+
+                @BeforeEach
+                public void setup() {
+                    createGetStubList(Map.of("deleteWhere", Map.of("property", property, "value", "{{request.pathSegments.[2]}}")));
+                }
+
+                @DisplayName("can delete first entry")
+                @Test
+                void test_deleteIndexZero() {
+                    getContext(contextName + "/" + valueOne, HttpStatus.SC_OK, (result) -> assertThat(result).isEmpty());
+
+                    assertThat(contextManager.getContext(contextName))
+                        .isPresent()
+                        .hasValueSatisfying((context) -> assertThat(context.getList()).noneSatisfy(it -> assertThat(it).containsEntry(property, valueOne)));
+                }
+
+                @DisplayName("can delete middle entry")
+                @Test
+                void test_deleteIndexOne() {
+                    getContext(contextName + "/" + valueTwo, HttpStatus.SC_OK, (result) -> assertThat(result).isEmpty());
+
+                    assertThat(contextManager.getContext(contextName))
+                        .isPresent()
+                        .hasValueSatisfying((context) -> assertThat(context.getList()).noneSatisfy(it -> assertThat(it).containsEntry(property, valueTwo)));
+                }
+
+                @DisplayName("can delete last entry")
+                @Test
+                void test_deleteIndexTwo() {
+                    getContext(contextName + "/" + valueThree, HttpStatus.SC_OK, (result) -> assertThat(result).isEmpty());
+
+                    assertThat(contextManager.getContext(contextName))
+                        .isPresent()
+                        .hasValueSatisfying((context) -> assertThat(context.getList()).noneSatisfy(it -> assertThat(it).containsEntry(property, valueThree)));
+                }
+
+
+                @DisplayName("does not delete other entries")
+                @Test
+                void test_doesNotDeleteOther() {
+                    getContext(contextName + "/" + valueTwo, HttpStatus.SC_OK, (result) -> assertThat(result).isEmpty());
+
+
+                    assertThat(contextManager.getContext(contextName))
+                        .isPresent()
+                        .hasValueSatisfying((context) -> {
+                            assertThat(context.getList()).hasSize(2);
+                            assertThat(context.getList().get(0)).containsEntry(property, valueOne);
+                            assertThat(context.getList().get(1)).containsEntry(property, valueThree);
+                        });
+                }
+
+                @DisplayName("can delete all entries")
+                @Test
+                void test_canDeleteAll() {
+                    getContext(contextName + "/" + valueTwo, HttpStatus.SC_OK, (result) -> assertThat(result).isEmpty());
+                    getContext(contextName + "/" + valueOne, HttpStatus.SC_OK, (result) -> assertThat(result).isEmpty());
+                    getContext(contextName + "/" + valueThree, HttpStatus.SC_OK, (result) -> assertThat(result).isEmpty());
+
+                    assertThat(contextManager.getContext(contextName))
+                        .isPresent()
+                        .hasValueSatisfying((context) -> assertThat(context.getList()).isEmpty());
+                }
+
+                @DisplayName("can delete re-added entries")
+                @Test
+                void test_canDeleteReAdded() {
+                    String valueFour = "listValueFour";
+                    getContext(contextName + "/" + valueTwo, HttpStatus.SC_OK, (result) -> assertThat(result).isEmpty());
+                    getContext(contextName + "/" + valueOne, HttpStatus.SC_OK, (result) -> assertThat(result).isEmpty());
+                    getContext(contextName + "/" + valueThree, HttpStatus.SC_OK, (result) -> assertThat(result).isEmpty());
+
+                    postContext(contextName, Map.of(property, valueTwo));
+                    postContext(contextName, Map.of(property, valueFour));
+
+                    assertThat(contextManager.getContext(contextName))
+                        .isPresent()
+                        .hasValueSatisfying((context) -> {
+                            assertThat(context.getList()).hasSize(2);
+                            assertThat(context.getList().get(0)).containsEntry(property, valueTwo);
+                            assertThat(context.getList().get(1)).containsEntry(property, valueFour);
+                        });
+                }
+            }
         }
 
+        @DisplayName("when deleting contexts")
+        @Nested
+        public class DeletingContext {
+
+            @DisplayName("with single exact match")
+            @Nested
+            public class ExactMatchSingle {
+                private final String contextName = "knownContext";
+                private final String otherContextName = "otherKnownContext";
+
+                @BeforeEach
+                void setup() {
+                    createPostStub(Map.of("stateValue", "aValue"));
+                    createGetStub(Map.of("context", "{{request.pathSegments.[1]}}"));
+
+                    postContext(contextName, Map.of());
+                    postContext(otherContextName, Map.of());
+                }
+
+                @DisplayName("deletes context")
+                @Test
+                void test_deleteContext() {
+                    getContext(contextName, HttpStatus.SC_OK, (result) -> assertThat(result).isEmpty());
+
+                    assertThat(contextManager.getContext(contextName)).isEmpty();
+                }
+
+                @DisplayName("double deletion does not cause an error")
+                @Test
+                void test_deleteContextTwice() {
+                    getContext(contextName, HttpStatus.SC_OK, (result) -> assertThat(result).isEmpty());
+                    getContext(contextName, HttpStatus.SC_OK, (result) -> assertThat(result).isEmpty());
+
+                    assertThat(contextManager.getContext(contextName)).isEmpty();
+                }
+
+                @DisplayName("does not delete other contexts")
+                @Test
+                void test_doesNotDeleteOther() {
+                    getContext(contextName, HttpStatus.SC_OK, (result) -> assertThat(result).isEmpty());
+
+                    assertThat(contextManager.getContext(otherContextName)).isPresent();
+                }
+            }
+
+            @DisplayName("with array exact match")
+            @Nested
+            public class ExactMatchArray {
+                private final String contextNameOne = "knownContextOne";
+                private final String contextNameTwo = "knownContextTwo";
+                private final String contextNameThree = "knownContextThree";
+
+                @BeforeEach
+                void setup() {
+                    createPostStub(Map.of("stateValue", "aValue"));
+
+                    postContext(contextNameOne, Map.of());
+                    postContext(contextNameTwo, Map.of());
+                    postContext(contextNameThree, Map.of());
+                    assertThat(contextManager.getContext(contextNameOne)).isPresent();
+                    assertThat(contextManager.getContext(contextNameTwo)).isPresent();
+                    assertThat(contextManager.getContext(contextNameThree)).isPresent();
+
+                }
+
+                @DisplayName("deletes single context")
+                @Test
+                void test_deleteContextsSingle() {
+                    createGetStub(Map.of("contexts", List.of(contextNameTwo)));
+
+                    getContext("any", HttpStatus.SC_OK, (result) -> assertThat(result).isEmpty());
+
+                    assertThat(contextManager.getContext(contextNameTwo)).isEmpty();
+                }
+
+                @DisplayName("deletes multiple context")
+                @Test
+                void test_deleteContextsMultiple() {
+                    createGetStub(Map.of("contexts", List.of(contextNameOne, contextNameThree)));
+
+                    getContext("any", HttpStatus.SC_OK, (result) -> assertThat(result).isEmpty());
+
+                    assertThat(contextManager.getContext(contextNameOne)).isEmpty();
+                    assertThat(contextManager.getContext(contextNameTwo)).isPresent();
+                    assertThat(contextManager.getContext(contextNameThree)).isEmpty();
+                }
+
+                @DisplayName("deletes all context")
+                @Test
+                void test_deleteContextsAll() {
+                    createGetStub(Map.of("contexts", List.of(contextNameOne, contextNameTwo, contextNameThree)));
+
+                    getContext(contextNameTwo, HttpStatus.SC_OK, (result) -> assertThat(result).isEmpty());
+
+                    assertThat(contextManager.getContext(contextNameTwo)).isEmpty();
+                }
+
+                @DisplayName("double deletion does not cause an error")
+                @Test
+                void test_deleteContextsTwice() {
+                    createGetStub(Map.of("contexts", List.of(contextNameTwo)));
+                    getContext("any", HttpStatus.SC_OK, (result) -> assertThat(result).isEmpty());
+                    getContext("any", HttpStatus.SC_OK, (result) -> assertThat(result).isEmpty());
+
+                    assertThat(contextManager.getContext(contextNameTwo)).isEmpty();
+                    assertThat(contextManager.getContext(contextNameOne)).isPresent();
+                    assertThat(contextManager.getContext(contextNameThree)).isPresent();
+                }
+
+                @DisplayName("does not delete other contexts")
+                @Test
+                void test_doesNotDeleteOther() {
+                    createGetStub(Map.of("contexts", List.of(contextNameTwo)));
+
+                    getContext("any", HttpStatus.SC_OK, (result) -> assertThat(result).isEmpty());
+
+                    assertThat(contextManager.getContext(contextNameTwo)).isEmpty();
+                    assertThat(contextManager.getContext(contextNameOne)).isPresent();
+                    assertThat(contextManager.getContext(contextNameThree)).isPresent();
+                }
+            }
+
+            @DisplayName("with regex match")
+            @Nested
+            public class RegexMatch {
+                private final String contextNameOne = "knownContextOne";
+                private final String contextNameTwo = "knownContextTwo";
+                private final String contextNameThree = "knownContextThree";
+
+                @BeforeEach
+                void setup() {
+                    createPostStub(Map.of("stateValue", "aValue"));
+
+                    postContext(contextNameOne, Map.of());
+                    postContext(contextNameTwo, Map.of());
+                    postContext(contextNameThree, Map.of());
+                    assertThat(contextManager.getContext(contextNameOne)).isPresent();
+                    assertThat(contextManager.getContext(contextNameTwo)).isPresent();
+                    assertThat(contextManager.getContext(contextNameThree)).isPresent();
+
+                }
+
+                @DisplayName("deletes single context")
+                @Test
+                void test_deleteContextsSingle() {
+                    createGetStub(Map.of("contextsMatching", ".*extOn.*"));
+
+                    getContext("any", HttpStatus.SC_OK, (result) -> assertThat(result).isEmpty());
+
+                    assertThat(contextManager.getContext(contextNameOne)).isEmpty();
+                }
+
+                @DisplayName("deletes multiple context")
+                @Test
+                void test_deleteContextsMultiple() {
+                    createGetStub(Map.of("contextsMatching", ".*extT.*"));
+
+                    getContext("any", HttpStatus.SC_OK, (result) -> assertThat(result).isEmpty());
+
+                    assertThat(contextManager.getContext(contextNameOne)).isPresent();
+                    assertThat(contextManager.getContext(contextNameTwo)).isEmpty();
+                    assertThat(contextManager.getContext(contextNameThree)).isEmpty();
+                }
+
+                @DisplayName("deletes all context")
+                @Test
+                void test_deleteContextsAll() {
+                    createGetStub(Map.of("contextsMatching", ".*ext.*"));
+
+                    getContext(contextNameTwo, HttpStatus.SC_OK, (result) -> assertThat(result).isEmpty());
+
+                    assertThat(contextManager.getContext(contextNameOne)).isEmpty();
+                    assertThat(contextManager.getContext(contextNameTwo)).isEmpty();
+                    assertThat(contextManager.getContext(contextNameThree)).isEmpty();
+                }
+
+                @DisplayName("double deletion does not cause an error")
+                @Test
+                void test_deleteContextsTwice() {
+                    createGetStub(Map.of("contextsMatching", ".*extOn.*"));
+                    getContext("any", HttpStatus.SC_OK, (result) -> assertThat(result).isEmpty());
+                    getContext("any", HttpStatus.SC_OK, (result) -> assertThat(result).isEmpty());
+
+                    assertThat(contextManager.getContext(contextNameOne)).isEmpty();
+                    assertThat(contextManager.getContext(contextNameTwo)).isPresent();
+                    assertThat(contextManager.getContext(contextNameThree)).isPresent();
+                }
+
+                @DisplayName("does not delete other contexts")
+                @Test
+                void test_doesNotDeleteOther() {
+                    createGetStub(Map.of("contextsMatching", ".*extTw.*"));
+
+                    getContext("any", HttpStatus.SC_OK, (result) -> assertThat(result).isEmpty());
+
+                    assertThat(contextManager.getContext(contextNameTwo)).isEmpty();
+                    assertThat(contextManager.getContext(contextNameOne)).isPresent();
+                    assertThat(contextManager.getContext(contextNameThree)).isPresent();
+                }
+            }
+        }
     }
+
+    @DisplayName("with configuration errors")
+    @Nested
+    public class ConfigurationErrors {
+
+        private final String contextName = "aContextName";
+
+        @BeforeEach
+        public void setup() {
+            createPostStub(Map.of("stateValue", "aValue"));
+
+            postContext(contextName, Map.of());
+        }
+
+        @DisplayName("ignores unknown properties")
+        @Test
+        public void test_ignoreUnknownExtraProperty() {
+            createGetStub(Map.of(
+                    "context", "{{request.pathSegments.[1]}}",
+                    "extraProperty", "extraValue"
+                )
+            );
+
+            getContext(contextName, HttpStatus.SC_OK, (result) -> assertThat(result).isEmpty());
+            assertThat(contextManager.getContext(contextName)).isEmpty();
+        }
+
+        private void assertListConfigurationError() {
+            getContext(contextName, HttpStatus.SC_INTERNAL_SERVER_ERROR,
+                (result) -> assertThat(result)
+                    .hasEntrySatisfying(
+                        "message",
+                        message ->
+                            assertThat(message)
+                                .asInstanceOf(STRING)
+                                .contains("Missing/invalid configuration for list")
+                    )
+            );
+        }
+
+        private void assertContextDeletionConfigurationError() {
+            getContext(contextName, HttpStatus.SC_INTERNAL_SERVER_ERROR,
+                (result) -> assertThat(result)
+                    .hasEntrySatisfying(
+                        "message",
+                        message ->
+                            assertThat(message)
+                                .asInstanceOf(STRING)
+                                .contains("Missing/invalid configuration for context deletion")
+                    )
+            );
+        }
+
+        @DisplayName("with array exact match")
+        @Nested
+        public class ExactMatchArray {
+            @DisplayName("fails on missing array")
+            @Test
+            public void test_missingArray() {
+                HashMap<String, Object> config = new HashMap<>() {{
+                    put("contexts", null);
+                }};
+                createGetStub(config);
+
+                assertContextDeletionConfigurationError();
+
+                assertThat(contextManager.getContext(contextName)).isPresent();
+            }
+
+            @DisplayName("ignores empty array")
+            @Test
+            public void test_emptyArray() {
+                createGetStub(Map.of("contexts", List.of()));
+
+                getContext("any", HttpStatus.SC_OK, (result) -> assertThat(result).isEmpty());
+
+                assertThat(contextManager.getContext(contextName)).isPresent();
+            }
+        }
+
+        @DisplayName("with regex match")
+        @Nested
+        public class RegexMatch {
+            @DisplayName("fails on missing configuration")
+            @Test
+            public void test_missingConfig() {
+                HashMap<String, Object> config = new HashMap<>() {{
+                    put("contextsMatching", null);
+                }};
+                createGetStub(config);
+
+                assertContextDeletionConfigurationError();
+
+                assertThat(contextManager.getContext(contextName)).isPresent();
+            }
+
+            @DisplayName("fails on invalid regex")
+            @Test
+            public void test_invalidRegex() {
+                HashMap<String, Object> config = new HashMap<>() {{
+                    put("contextsMatching", "\\");
+                }};
+                createGetStub(config);
+
+                assertContextDeletionConfigurationError();
+
+                assertThat(contextManager.getContext(contextName)).isPresent();
+            }
+        }
+
+        @DisplayName("with list configuration")
+        @Nested
+        public class ListConfiguration {
+
+            @DisplayName("reports error when no context is specified")
+            @TestFactory
+            public List<DynamicTest> test_missingContextForLists() {
+                Map<String, Object> body = Map.of("listValue", "aListValue");
+                var checks = Map.of(
+                    "deleteFirst", true,
+                    "deleteLast", true,
+                    "deleteIndex", 100,
+                    "deleteWhere", Map.of(
+                        "property", "listValue",
+                        "value", "{{request.pathSegments.[1]}}"
+                    )
+                );
+
+                return checks.entrySet().stream().map(entry ->
+                    DynamicTest.dynamicTest(entry.getKey(), () -> {
+                        wm.resetAll();
+                        createGetStub(Map.of(entry.getKey(), entry.getValue()));
+
+                        assertContextDeletionConfigurationError();
+                    })
+                ).collect(Collectors.toList());
+            }
+
+            @DisplayName("ignores list config errors for")
+            @TestFactory
+            public List<DynamicTest> test_listConfigErrors() {
+                var checks = Map.of(
+                    "deleteFirst", 1,
+                    "deleteLast", 1,
+                    "deleteIndex", "a string"
+                );
+
+                return checks.entrySet().stream().map(entry ->
+                    DynamicTest.dynamicTest(entry.getKey(), () -> {
+                        wm.resetAll();
+                        createGetStubList(Map.of(entry.getKey(), entry.getValue()));
+
+                        getContext(contextName, HttpStatus.SC_OK, (result) -> assertThat(result).isEmpty());
+                    })
+                ).collect(Collectors.toList());
+            }
+
+            @DisplayName("with deleteWhere")
+            @Nested
+            public class DeleteWhere {
+
+                @DisplayName("reports missing configuration")
+                @Test
+                public void test_noConfiguration() {
+                    createGetStubList(Map.of("deleteWhere", Map.of()));
+
+                    assertListConfigurationError();
+                }
+
+                @DisplayName("ignores extra properties")
+                @Test
+                public void test_extraProperties() {
+                    createGetStubList(
+                        Map.of(
+                            "deleteWhere",
+                            Map.of(
+                                "property", "aProperty",
+                                "value", "aValue",
+                                "extraProperty", "aExtraProperty"
+                            )
+                        )
+                    );
+
+                    getContext(contextName, HttpStatus.SC_OK, (result) -> assertThat(result).isEmpty());
+                }
+
+                @DisplayName("reports missing property")
+                @Test
+                public void test_noProperty() {
+                    createGetStubList(Map.of("deleteWhere", Map.of("value", "aValue")));
+
+                    assertListConfigurationError();
+                }
+
+                @DisplayName("reports missing value")
+                @Test
+                public void test_noValue() {
+                    createGetStubList(Map.of("deleteWhere", Map.of("property", "aProperty")));
+                    assertListConfigurationError();
+                }
+            }
+        }
+    }
+
+    @DisplayName("with missing context")
+    @Nested
+    public class MissingContext {
+
+        @DisplayName("when deleting list entries")
+        @Nested
+        public class DeletingList {
+
+            private final String contextName = "unknownContext";
+            private final String otherContextName = "knownContext";
+
+            @DisplayName("causes no error")
+            @TestFactory
+            public List<DynamicTest> test_noError() {
+                var checks = Map.of(
+                    "deleteFirst", true,
+                    "deleteLast", true,
+                    "deleteIndex", 100,
+                    "deleteWhere", Map.of(
+                        "property", "listValue",
+                        "value", "{{request.pathSegments.[1]}}"
+                    )
+                );
+
+                return checks.entrySet().stream().map(entry ->
+                    DynamicTest.dynamicTest(entry.getKey(), () -> {
+                        wm.resetAll();
+                        createPostStubList(Map.of("listValue", "{{jsonPath request.body '$.listValue'}}"));
+                        createGetStubList(Map.of(entry.getKey(), entry.getValue()));
+
+                        getContext(contextName, HttpStatus.SC_OK, (result) -> assertThat(result).isEmpty());
+                    })
+                ).collect(Collectors.toList());
+            }
+
+            @DisplayName("does not delete entries in other lists")
+            @TestFactory
+            public List<DynamicTest> test_doesNotDeleteOther() {
+                Map<String, Object> body = Map.of("listValue", "aListValue");
+                var checks = Map.of(
+                    "deleteFirst", true,
+                    "deleteLast", true,
+                    "deleteIndex", 100,
+                    "deleteWhere", Map.of(
+                        "property", "listValue",
+                        "value", "{{request.pathSegments.[1]}}"
+                    )
+                );
+
+                return checks.entrySet().stream().map(entry ->
+                    DynamicTest.dynamicTest(entry.getKey(), () -> {
+                        wm.resetAll();
+                        contextManager.deleteAllContexts();
+                        createPostStubList(Map.of("listValue", "{{jsonPath request.body '$.listValue'}}"));
+                        createGetStubList(Map.of(entry.getKey(), entry.getValue()));
+                        postContext(otherContextName, body);
+                        assertThat(contextManager.getContext(otherContextName)).isPresent();
+
+                        getContext(contextName, HttpStatus.SC_OK, (result) -> assertThat(result).isEmpty());
+                        assertThat(contextManager.getContext(otherContextName)).isPresent().hasValueSatisfying(it -> {
+                            assertThat(it.getList()).hasSize(1).first().asInstanceOf(MAP).containsAllEntriesOf(body);
+                        });
+                    })
+                ).collect(Collectors.toList());
+            }
+
+        }
+
+        @DisplayName("when deleting a context")
+        @Nested
+        public class DeletingContexts {
+
+            private final String contextName = "unknownContext";
+
+            @DisplayName("causes no error")
+            @Test
+            public void test_noError() {
+                createGetStub(Map.of("context", "{{request.pathSegments.[1]}}"));
+
+                getContext(contextName, HttpStatus.SC_OK, (result) -> assertThat(result).isEmpty());
+            }
+
+            @DisplayName("does not delete other contexts")
+            @Test
+            public void test_doesNotDeleteOther() {
+                createPostStub(Map.of("stateValue", "aValue"));
+                createGetStub(Map.of("context", "{{request.pathSegments.[1]}}"));
+
+                String otherContextName = "knownContext";
+                postContext(otherContextName, Map.of());
+
+                getContext(contextName, HttpStatus.SC_OK, (result) -> assertThat(result).isEmpty());
+                assertThat(contextManager.getContext(otherContextName)).isPresent();
+            }
+        }
+    }
+
 }

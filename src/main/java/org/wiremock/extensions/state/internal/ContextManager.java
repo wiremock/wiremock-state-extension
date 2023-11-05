@@ -52,7 +52,7 @@ public class ContextManager {
      */
     public Optional<Context> getContext(String contextName) {
         synchronized (store) {
-            return store.get(contextName).map(it -> (Context) it).map(Context::new);
+            return getSafeContextCopy(contextName);
         }
     }
 
@@ -60,6 +60,14 @@ public class ContextManager {
         synchronized (store) {
             store.remove(contextName);
             logger().info(contextName, "deleted");
+        }
+    }
+
+    public void onEach(Consumer<Context> consumer) {
+        synchronized(store) {
+            store.getAllKeys().forEach(contextName -> {
+                getSafeContextCopy(contextName).ifPresent(consumer);
+            });
         }
     }
 
@@ -116,5 +124,9 @@ public class ContextManager {
         synchronized (store) {
             return store.get(contextName).map(it -> ((Context) it).getMatchCount()).orElse(0L);
         }
+    }
+
+    private Optional<Context> getSafeContextCopy(String contextName) {
+        return store.get(contextName).map(it -> (Context) it).map(Context::new);
     }
 }

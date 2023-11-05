@@ -28,9 +28,13 @@ import org.wiremock.extensions.state.internal.DeleteStateParameters;
 import org.wiremock.extensions.state.internal.ResponseTemplateModel;
 import org.wiremock.extensions.state.internal.StateExtensionMixin;
 
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.regex.Pattern;
+import java.util.regex.PatternSyntaxException;
+import java.util.stream.Collectors;
 
 import static org.wiremock.extensions.state.internal.ExtensionLogger.logger;
 
@@ -68,11 +72,50 @@ public class DeleteStateEventListener implements ServeEventListener, StateExtens
             "response", ResponseTemplateModel.from(serveEvent.getResponse())
         );
         var configuration = Json.mapToObject(parameters, DeleteStateParameters.class);
-        var contextName = createContextName(model, configuration);
         Optional.ofNullable(configuration.getList()).ifPresentOrElse(
-            listConfig -> handleListDeletion(listConfig, contextName, model),
-            () -> contextManager.deleteContext(contextName)
+            listConfig -> handleListDeletion(listConfig, createContextName(model, configuration.getContext()), model),
+            () -> handleContextDeletion(configuration, model)
         );
+    }
+
+    private void handleContextDeletion(DeleteStateParameters configuration, Map<String, Object> model) {
+        if (configuration.getContext() != null) {
+            deleteContext(configuration.getContext(), model);
+        } else if (configuration.getContexts() != null) {
+            deleteContexts(configuration.getContexts(), model);
+        } else if (configuration.getContextsMatching() != null) {
+            deleteContextsMatching(configuration.getContextsMatching(), model);
+        } else {
+            throw createConfigurationError("Missing/invalid configuration for context deletion");
+        }
+    }
+
+    private void deleteContexts(List<String> rawContexts, Map<String, Object> model) {
+
+        var contexts = rawContexts.stream().map(it -> renderTemplate(model, it)).collect(Collectors.toList());
+        contextManager.onEach(context -> {
+            if(contexts.contains(context.getContextName())) {
+                contextManager.deleteContext(context.getContextName());
+            }
+        });
+    }
+
+    private void deleteContextsMatching(String rawRegex, Map<String, Object> model) {
+        try {
+            var regex = renderTemplate(model, rawRegex);
+            var pattern = Pattern.compile(regex);
+            contextManager.onEach(context -> {
+                if(pattern.matcher(context.getContextName()).matches()) {
+                    contextManager.deleteContext(context.getContextName());
+                }
+            });
+        } catch (PatternSyntaxException ex) {
+            throw createConfigurationError("Missing/invalid configuration for context deletion: %s", ex.getMessage());
+        }
+    }
+
+    private void deleteContext(String rawContext, Map<String, Object> model) {
+        contextManager.deleteContext(createContextName(model, rawContext));
     }
 
     private void handleListDeletion(DeleteStateParameters.ListParameters listConfig, String contextName, Map<String, Object> model) {
@@ -88,7 +131,7 @@ public class DeleteStateEventListener implements ServeEventListener, StateExtens
         ) {
             deleteWhere(listConfig, contextName, model);
         } else {
-            throw createConfigurationError("Missing/invalid configuration for list: ");
+            throw createConfigurationError("Missing/invalid configuration for list entry deletion");
         }
     }
 
@@ -114,7 +157,7 @@ public class DeleteStateEventListener implements ServeEventListener, StateExtens
                 logger().info(contextName, String.format("list::deleteIndex(%d)", index));
             });
         } catch (IndexOutOfBoundsException | NumberFormatException e) {
-            throw createConfigurationError("List index '%s' does not exist or cannot be parsed: %s", listConfig.getDeleteIndex(), e.getMessage());
+            logger().info(contextName, String.format("Unknown or unparsable list index: '%s' - ignoring", listConfig.getDeleteIndex()));
         }
     }
 
@@ -134,9 +177,10 @@ public class DeleteStateEventListener implements ServeEventListener, StateExtens
         });
     }
 
-    private String createContextName(Map<String, Object> model, DeleteStateParameters parameters) {
-        var rawContext = Optional.ofNullable(parameters.getContext()).filter(StringUtils::isNotBlank).orElseThrow(() -> new ConfigurationException("no context specified"));
-        String context = renderTemplate(model, rawContext);
+    private String createContextName(Map<String, Object> model, String rawContext) {
+        var context = Optional.ofNullable(rawContext).filter(StringUtils::isNotBlank)
+            .map(it -> renderTemplate(model, it))
+            .orElseThrow(() -> new ConfigurationException("no context specified"));
         if (StringUtils.isBlank(context)) {
             throw createConfigurationError("Context cannot be blank");
         }
