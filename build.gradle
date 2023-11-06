@@ -28,7 +28,7 @@ project.ext {
             wiremock  : '3.2.0',
             caffeine  : '3.1.8',
             handlebars: '4.3.1',
-            junit     : '5.10.0',
+            junit     : '5.10.1',
             assertj   : '3.24.2',
             restAssured: '5.3.2',
             awaitility: '4.2.0'
