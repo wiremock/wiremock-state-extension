@@ -1,6 +1,7 @@
 # WireMock State extension
 
 [![GitHub release (latest by date)](https://img.shields.io/github/v/release/wiremock/wiremock-state-extension)](https://github.com/wiremock/wiremock-state-extension/releases)
+[![Maven Central](https://img.shields.io/maven-central/v/org.wiremock.extensions/wiremock-state-extension)](https://img.shields.io/maven-central/v/org.wiremock.extensions/wiremock-state-extension)
 [![Slack](https://img.shields.io/badge/slack-slack.wiremock.org-brightgreen?style=flat&logo=slack)](https://slack.wiremock.org/)
 [![GitHub contributors](https://img.shields.io/github/contributors/wiremock/wiremock-state-extension)](https://github.com/wiremock/wiremock-state-extension/graphs/contributors)
 
@@ -124,22 +125,17 @@ the `GET` won't have any knowledge of the previous post.
    {
   "firstName": "Jane",
   "lastName": "Doe"
-
-}
-
+  }
    ```
 
 - Response:
 
    ```json
-    {
-  "id": "54owywgurlqepq1wc5xvyc2hipe8xp4u",
-  #
-  Random
-  value
-  "firstName": "Jane",
-  "lastName": "Doe"
-}
+   {
+   "id": "54owywgurlqepq1wc5xvyc2hipe8xp4u",  # Random value
+   "firstName": "Jane",
+   "lastName": "Doe"
+   }
    ```
 
 3. `GET` to retrieve the first value (`GET /queue`)
@@ -147,13 +143,11 @@ the `GET` won't have any knowledge of the previous post.
 - Response:
 
   ```json
-    {
+  {
   "id": "kn0ixsaswzrzcfzriytrdupnjnxor1is",
   "firstName": "John",
   "lastName": "Doe"
-
-}
-
+  }
   ```
 
 4. `GET` to retrieve the second value (`GET /queue`)
@@ -161,11 +155,11 @@ the `GET` won't have any knowledge of the previous post.
 - Response:
 
   ```json
-    {
+  {
   "id": "54owywgurlqepq1wc5xvyc2hipe8xp4u",
   "firstName": "Jane",
   "lastName": "Doe"
-}
+  }
   ```
 
 # Usage
@@ -288,7 +282,7 @@ storing any data.
 The standalone jar can be downloaded from [GitHub](https://github.com/wiremock/wiremock-extension-state/packages/1902576) .
 
 ```bash
-java -cp "wiremock-state-extension-standalone-0.0.5.jar:wiremock-standalone-3.0.0-beta-11.jar" wiremock.Run
+java -cp "wiremock-state-extension-standalone-0.4.0.jar:wiremock-standalone-3.3.0.jar" wiremock.Run
 ```
 
 ### Docker
@@ -303,7 +297,7 @@ docker run -it --rm \
 -p 8080:8080 \
 --name wiremock \
 -v $PWD/extensions:/var/wiremock/extensions \
-wiremock/wiremock:3x \
+wiremock/wiremock:3.3.0 \
 -- --global-response-templating
 ```
 
@@ -349,7 +343,7 @@ The following parameters have to be provided:
 <td>
 
 ```json
-  {
+{
   "id": "{{jsonPath response.body '$.id'}}",
   "firstName": "{{jsonPath request.body '$.firstName'}}",
   "lastName": "{{jsonPath request.body '$.lastName'}}"
@@ -374,7 +368,7 @@ Dictionary
 <td>
 
 ```json
-  {
+{
   "addLast": {
     "id": "{{jsonPath response.body '$.id'}}",
     "firstName": "{{jsonPath request.body '$.firstName'}}",
@@ -529,14 +523,19 @@ The following parameters have to be provided:
 
 <table>
 <tr>
+<th>Task</th>
 <th>Parameter</th>
 <th>Type</th>
 <th>Example</th>
 </tr>
 <tr>
+<td rowspan="3">
+context deletion
+</td>
 <td>
 
-`context`
+`context`<br>
+Deletes a single context.
 
 </td>
 <td>String</td>
@@ -550,9 +549,45 @@ The following parameters have to be provided:
 <tr>
 <td>
 
-`list` (Optional) <br>
-When list is provided, only the specified list element is deleted. If `list` is not provided, the whole context is deleted.
+`contexts`
+Deletes all contexts specified in the array.
 
+</td>
+<td>Array<br>
+An empty array or unknown contexts are silently ignored.
+</td>
+<td>
+
+- `"contexts": ["{{jsonPath response.body '$.firstContext'}}", "{{jsonPath response.body '$.secondContext'}}"]`
+- `"contexts": ["a", "b", "c"]`
+
+</td>
+</tr>
+<tr>
+<td>
+
+`contextsMatching`
+Deletes all contexts matching the regex.
+</td>
+<td>String (regex)<br>
+An invalid regex results in an exception. If there are no matches, this is silently ignored.
+</td>
+<td>
+
+- `"contextsMatching": ".*userNa.*"`
+- `"contextsMatching": ".*(john|jane).*"`
+- `"contextsMatching": ".*"` (delete all contexts)
+
+</td>
+</tr>
+<tr>
+<td>List entry deletion</td>
+<td>
+
+- `context` (string): the context to delete the list entry from
+- `list` (dictionary, see next column)
+
+If `list` is specified and `context` is missing, an error is thrown. 
 </td>
 <td>
 Dictionary - only one option is interpreted (top to bottom as listed here)
@@ -666,7 +701,7 @@ The default expiration is 60 minutes. The default value can be overwritten (`0` 
 
 ```java
 int expiration=1024;
-    var store=new CaffeineStore(expiration);
+var store=new CaffeineStore(expiration);
 ```
 
 ## Match a request against a context
