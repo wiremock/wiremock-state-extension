@@ -77,6 +77,18 @@ shadowJar {
     exclude 'handlebars-*.js'
 }
 
+test {
+    finalizedBy jacocoTestReport
+}
+jacocoTestReport {
+    dependsOn test
+    reports {
+        xml.required = true
+        csv.required = true
+        html.required = true
+    }
+}
+
 group 'org.wiremock.extensions'
 
 version gitVersion()

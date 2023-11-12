@@ -1,9 +1,11 @@
 # WireMock State extension
 
 [![GitHub release (latest by date)](https://img.shields.io/github/v/release/wiremock/wiremock-state-extension)](https://github.com/wiremock/wiremock-state-extension/releases)
-[![Maven Central](https://img.shields.io/maven-central/v/org.wiremock.extensions/wiremock-state-extension)](https://img.shields.io/maven-central/v/org.wiremock.extensions/wiremock-state-extension)
+[![Maven Central](https://img.shields.io/maven-central/v/org.wiremock.extensions/wiremock-state-extension)](https://central.sonatype.com/artifact/org.wiremock.extensions/wiremock-state-extension)
 [![Slack](https://img.shields.io/badge/slack-slack.wiremock.org-brightgreen?style=flat&logo=slack)](https://slack.wiremock.org/)
 [![GitHub contributors](https://img.shields.io/github/contributors/wiremock/wiremock-state-extension)](https://github.com/wiremock/wiremock-state-extension/graphs/contributors)
+![Line Coverage](../badges/line-coverage.svg)
+![Branches Coverage](../badges/branches-coverage.svg)
 
 <p align="center">
     <a href="https://wiremock.org" target="_blank">
