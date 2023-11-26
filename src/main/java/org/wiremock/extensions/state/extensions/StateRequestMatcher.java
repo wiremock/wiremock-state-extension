@@ -15,18 +15,23 @@
  */
 package org.wiremock.extensions.state.extensions;
 
+import com.github.tomakehurst.wiremock.common.Json;
+import com.github.tomakehurst.wiremock.core.ConfigurationException;
 import com.github.tomakehurst.wiremock.extension.Parameters;
 import com.github.tomakehurst.wiremock.extension.responsetemplating.RequestTemplateModel;
 import com.github.tomakehurst.wiremock.extension.responsetemplating.TemplateEngine;
 import com.github.tomakehurst.wiremock.http.Request;
+import com.github.tomakehurst.wiremock.matching.ContentPattern;
 import com.github.tomakehurst.wiremock.matching.MatchResult;
 import com.github.tomakehurst.wiremock.matching.RequestMatcherExtension;
+import com.github.tomakehurst.wiremock.matching.StringValuePattern;
 import org.wiremock.extensions.state.internal.Context;
 import org.wiremock.extensions.state.internal.ContextManager;
 import org.wiremock.extensions.state.internal.ContextTemplateModel;
 import org.wiremock.extensions.state.internal.StateExtensionMixin;
 
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -54,13 +59,36 @@ public class StateRequestMatcher extends RequestMatcherExtension implements Stat
         this.templateEngine = templateEngine;
     }
 
-    private static List<Map.Entry<ContextMatcher, Object>> getMatches(Parameters parameters) {
+    private static List<Map.Entry<ContextMatcher, Object>> getMatchers(Parameters parameters) {
         return parameters
             .entrySet()
             .stream()
             .filter(it -> ContextMatcher.from(it.getKey()) != null)
             .map(it -> Map.entry(ContextMatcher.from(it.getKey()), it.getValue()))
             .collect(Collectors.toUnmodifiableList());
+    }
+
+    private static <T> T cast(Object object) {
+        try {
+            //noinspection unchecked
+            return (T) object;
+        } catch (ClassCastException ex) {
+            var msg = String.format("Configuration has invalid type: %s", ex.getMessage());
+            var prefixed = String.format("%s: %s", "StateRequestMatcher", msg);
+            notifier().error(prefixed);
+            throw new ConfigurationException(prefixed);
+        }
+    }
+
+    private static <T> T mapToObject(Map<String, Object> map, Class<T> klass) {
+        try {
+            return Json.mapToObject(map, klass);
+        } catch (Exception ex) {
+            var msg = String.format("Cannot create pattern matcher: %s", ex.getMessage());
+            var prefixed = String.format("%s: %s", "StateRequestMatcher", msg);
+            notifier().error(prefixed);
+            throw new ConfigurationException(prefixed);
+        }
     }
 
     @Override
@@ -81,7 +109,7 @@ public class StateRequestMatcher extends RequestMatcherExtension implements Stat
     private MatchResult hasContext(Map<String, Object> model, Parameters parameters, String template) {
         return contextManager.getContext(renderTemplate(model, template))
             .map(context -> {
-                List<Map.Entry<ContextMatcher, Object>> matchers = getMatches(parameters);
+                List<Map.Entry<ContextMatcher, Object>> matchers = getMatchers(parameters);
                 if (matchers.isEmpty()) {
                     logger().info(context, "hasContext matched");
                     return MatchResult.exactMatch();
@@ -93,13 +121,12 @@ public class StateRequestMatcher extends RequestMatcherExtension implements Stat
 
     private MatchResult calculateMatch(Map<String, Object> model, Context context, List<Map.Entry<ContextMatcher, Object>> matchers) {
         model.put("context", ContextTemplateModel.from(context));
-        var result = matchers
+        var results = matchers
             .stream()
-            .map(it -> it.getKey().evaluate(context, renderTemplate(model, it.getValue().toString())))
-            .filter(it -> !it)
-            .count();
+            .map(it -> it.getKey().evaluate(context, renderTemplateRecursively(model, it.getValue())))
+            .collect(Collectors.toList());
 
-        return MatchResult.partialMatch((double) result / matchers.size());
+        return MatchResult.aggregate(results);
     }
 
     private MatchResult hasNotContext(Map<String, Object> model, String template) {
@@ -116,21 +143,114 @@ public class StateRequestMatcher extends RequestMatcherExtension implements Stat
         return templateEngine.getUncachedTemplate(value).apply(context);
     }
 
+    Object renderTemplateRecursively(Object context, Object value) {
+        if (value instanceof Collection) {
+            Collection<Object> castedCollection = cast(value);
+            return castedCollection.stream().map(it -> renderTemplateRecursively(context, it)).collect(Collectors.toList());
+        } else if (value instanceof Map) {
+            var newMap = new HashMap<String, Object>();
+            Map<String, Object> castedMap = cast(value);
+            castedMap.forEach((k, v) -> newMap.put(
+                renderTemplate(context, k),
+                renderTemplateRecursively(context, v)
+            ));
+            return newMap;
+        } else {
+            return renderTemplate(context, value.toString());
+        }
+    }
+
     private enum ContextMatcher {
 
-        hasProperty((Context c, String stringValue) -> c.getProperties().containsKey(stringValue)),
-        hasNotProperty((Context c, String stringValue) -> !c.getProperties().containsKey(stringValue)),
-        updateCountEqualTo((Context c, String stringValue) -> withConvertedNumber(c, stringValue, (context, value) -> context.getUpdateCount().equals(value))),
-        updateCountLessThan((Context c, String stringValue) -> withConvertedNumber(c, stringValue, (context, value) -> context.getUpdateCount() < value)),
-        updateCountMoreThan((Context c, String stringValue) -> withConvertedNumber(c, stringValue, (context, value) -> context.getUpdateCount() > value)),
-        listSizeEqualTo((Context c, String stringValue) -> withConvertedNumber(c, stringValue, (context, value) -> context.getList().size() == value)),
-        listSizeLessThan((Context c, String stringValue) -> withConvertedNumber(c, stringValue, (context, value) -> context.getList().size() < value)),
-        listSizeMoreThan((Context c, String stringValue) -> withConvertedNumber(c, stringValue, (context, value) -> context.getList().size() > value));
+        property((Context c, Object object) -> {
+            Map<String, Map<String, Object>> mapValue = cast(object);
+            var results = mapValue.entrySet().stream().map(entry -> {
+                var patterns = mapToObject(entry.getValue(), StringValuePattern.class);
+                var propertyValue = c.getProperties().get(entry.getKey());
+                return patterns.match(propertyValue);
+            }).collect(Collectors.toList());
+            if (results.isEmpty()) {
+                logger().info(c, "No interpretable matcher was found, defaulting to 'exactMatch'");
+                return MatchResult.exactMatch();
+            } else {
+                return MatchResult.aggregate(results);
+            }
+        }),
 
-        private final BiFunction<Context, String, Boolean> evaluator;
+        list((Context c, Object object) -> {
+            Map<String, Map<String, Map<String, Object>>> mapValue = cast(object);
+            var allResults = mapValue.entrySet().stream().map(listIndexEntry -> {
+                Map<String, String> listEntry;
+                switch (listIndexEntry.getKey()) {
+                    case "last":
+                    case "-1":
+                        listEntry = c.getList().getLast();
+                        break;
+                    case "first":
+                        listEntry = c.getList().getFirst();
+                        break;
+                    default:
+                        listEntry = withConvertedNumberGet(c, listIndexEntry.getKey(), (context, value) -> c.getList().get(value.intValue()));
+                }
+                if (listEntry == null) {
+                    return MatchResult.noMatch();
+                } else {
+                    var results = listIndexEntry.getValue().entrySet().stream().map(entry -> {
+                        var patterns = mapToObject(entry.getValue(), StringValuePattern.class);
+                        var propertyValue = listEntry.get(entry.getKey());
+                        return patterns.match(propertyValue);
+                    }).collect(Collectors.toList());
+                    if (results.isEmpty()) {
+                        logger().info(c, "No interpretable matcher was found, defaulting to 'exactMatch'");
+                        return MatchResult.exactMatch();
+                    } else {
+                        return MatchResult.aggregate(results);
+                    }
+                }
+            }).collect(Collectors.toList());
+            return MatchResult.aggregate(allResults);
+        }),
+        hasProperty((Context c, Object object) -> {
+            String stringValue = cast(object);
+            return toMatchResult(c.getProperties().containsKey(stringValue));
+        }),
+        hasNotProperty((Context c, Object object) -> {
+            String stringValue = cast(object);
+            return toMatchResult(!c.getProperties().containsKey(stringValue));
+        }),
+        updateCountEqualTo((Context c, Object object) -> {
+            String stringValue = cast(object);
+            return toMatchResult(withConvertedNumber(c, stringValue, (context, value) -> context.getUpdateCount().equals(value)));
+        }),
+        updateCountLessThan((Context c, Object object) -> {
+            String stringValue = cast(object);
+            return toMatchResult(withConvertedNumber(c, stringValue, (context, value) -> context.getUpdateCount() < value));
+        }),
+        updateCountMoreThan((Context c, Object object) -> {
+            String stringValue = cast(object);
+            return toMatchResult(withConvertedNumber(c, stringValue, (context, value) -> context.getUpdateCount() > value));
+        }),
+        listSizeEqualTo((Context c, Object object) -> {
+            String stringValue = cast(object);
+            return toMatchResult(withConvertedNumber(c, stringValue, (context, value) -> context.getList().size() == value));
+        }),
+        listSizeLessThan((Context c, Object object) -> {
+            String stringValue = cast(object);
+            return toMatchResult(withConvertedNumber(c, stringValue, (context, value) -> context.getList().size() < value));
+        }),
+        listSizeMoreThan((Context c, Object object) -> {
+            String stringValue = cast(object);
+            return toMatchResult(withConvertedNumber(c, stringValue, (context, value) -> context.getList().size() > value));
+        });
 
-        ContextMatcher(BiFunction<Context, String, Boolean> evaluator) {
+        private final BiFunction<Context, Object, MatchResult> evaluator;
+
+        ContextMatcher(BiFunction<Context, Object, MatchResult> evaluator) {
             this.evaluator = evaluator;
+        }
+
+        private static MatchResult toMatchResult(boolean result) {
+            return result ? MatchResult.exactMatch() : MatchResult.noMatch();
         }
 
         public static ContextMatcher from(String from) {
@@ -144,12 +264,19 @@ public class StateRequestMatcher extends RequestMatcherExtension implements Stat
             } catch (NumberFormatException ex) {
                 return false;
             }
-
         }
 
-        public boolean evaluate(Context context, String value) {
+        private static <T> T withConvertedNumberGet(Context context, String stringValue, BiFunction<Context, Long, T> getter) {
+            try {
+                var longValue = Long.valueOf(stringValue);
+                return getter.apply(context, longValue);
+            } catch (NumberFormatException | IndexOutOfBoundsException ex) {
+                return null;
+            }
+        }
+
+        public MatchResult evaluate(Context context, Object value) {
             return this.evaluator.apply(context, value);
         }
-
     }
 }
