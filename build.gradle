@@ -28,3 +28,15 @@ shadowJar {
     relocate "com.github.ben-manes.caffeine", 'wiremock.com.github.ben-manes.caffeine'
     relocate "com.github.jknack", 'wiremock.com.github.jknack'
 }
+
+test {
+    finalizedBy jacocoTestReport
+}
+jacocoTestReport {
+    dependsOn test
+    reports {
+        xml.required = true
+        csv.required = true
+        html.required = true
+    }
+}

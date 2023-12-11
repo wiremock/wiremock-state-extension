@@ -17,9 +17,14 @@ package org.wiremock.extensions.state.internal;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 
+import java.util.List;
+
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class DeleteStateParameters {
     private String context;
+    private String contextsMatching;
+
+    private List<String> contexts;
     private ListParameters list;
 
     public ListParameters getList() {
@@ -36,6 +41,22 @@ public class DeleteStateParameters {
 
     public void setContext(String context) {
         this.context = context;
+    }
+
+    public List<String> getContexts() {
+        return contexts;
+    }
+
+    public void setContexts(List<String> contexts) {
+        this.contexts = contexts;
+    }
+
+    public String getContextsMatching() {
+        return contextsMatching;
+    }
+
+    public void setContextsMatching(String contextsMatching) {
+        this.contextsMatching = contextsMatching;
     }
 
     @JsonIgnoreProperties(ignoreUnknown = true)
