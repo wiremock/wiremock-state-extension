@@ -30,7 +30,7 @@ project.ext {
             handlebars: '4.3.1',
             junit     : '5.10.1',
             assertj   : '3.24.2',
-            restAssured: '5.3.2',
+            restAssured: '5.4.0',
             awaitility: '4.2.0'
     ]
 }
