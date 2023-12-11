@@ -6,7 +6,7 @@ buildscript {
 
 plugins {
     id 'jacoco'
-    id 'com.diffplug.spotless' version '6.22.0'
+    id 'com.diffplug.spotless' version '6.23.3'
     id 'org.wiremock.tools.gradle.wiremock-extension-convention' version '0.1.2'
 }
 
