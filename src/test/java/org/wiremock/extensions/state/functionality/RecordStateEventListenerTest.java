@@ -18,9 +18,12 @@ package org.wiremock.extensions.state.functionality;
 import com.github.tomakehurst.wiremock.client.WireMock;
 import com.github.tomakehurst.wiremock.extension.Parameters;
 import io.restassured.http.ContentType;
+import org.apache.commons.lang3.NotImplementedException;
 import org.apache.commons.lang3.RandomStringUtils;
 import org.apache.http.HttpStatus;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
@@ -320,5 +323,11 @@ class RecordStateEventListenerTest extends AbstractTestBase {
             assertContextNumUpdates(contextTwo, 1);
         }
 
+        @Disabled
+        @DisplayName("update count only increased by one when both property and list are updated")
+        @Test
+        void test_updatePropertyAndList_incOne() {
+            throw new NotImplementedException();
+        }
     }
 }

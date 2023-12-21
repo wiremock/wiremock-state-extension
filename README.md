@@ -172,7 +172,7 @@ the `GET` won't have any knowledge of the previous post.
 |------------------------------------|--------------------|
 | `0.0.3`+                           | `3.0.0-beta-11`+   |
 | `0.0.6`+                           | `3.0.0-beta-14`+   |
-| `0.1.0`+                           | `3.0.0`+   |
+| `0.1.0`+                           | `3.0.0`+           |
 
 ## Installation
 
@@ -308,7 +308,7 @@ wiremock/wiremock:3.3.0 \
 The state is recorded in `serveEventListeners` of a stub. The following functionalities are provided:
 
 - `state` : stores a state in a context. Storing the state multiple times can be used to selectively overwrite existing properties.
-  - to delete a selective property, set it to `null` (as string).
+    - to delete a selective property, set it to `null` (as string).
 - `list` : stores a state in a list. Can be used to prepend/append new states to an existing list. List elements cannot be modified (only read/deleted).
 
 `state` and `list` can be used in the same `ServeEventListener` (would count as two updates). Adding multiple `recordState` `ServeEventListener` is supported.
@@ -702,8 +702,8 @@ to avoid memory leaks).
 The default expiration is 60 minutes. The default value can be overwritten (`0` = default = 60 minutes):
 
 ```java
-int expiration=1024;
-var store=new CaffeineStore(expiration);
+int expiration = 1024;
+var store = new CaffeineStore(expiration);
 ```
 
 ## Match a request against a context
@@ -760,6 +760,46 @@ As for other matchers, templating is supported.
 }
 ```
 
+### Full flexible property match
+
+In case you want full flexibility into matching on a property, you can simply specify `property` and use one of WireMock's built-in matchers, allowing you to
+configure
+logical operators, regex, date matchers, absence and much more. The basic syntax:
+
+```json
+"property": {
+<property-a>: <matcher-a>,
+<property-b>: <matcher-b>
+}
+```
+
+Example:
+
+```json
+{
+  "request": {
+    "method": "GET",
+    "urlPattern": "/test/[^\/]+/[^\/]+",
+    "customMatcher": {
+      "name": "state-matcher",
+      "parameters": {
+        "property": {
+          "myProperty": {
+            "contains": "myValue"
+          }
+        }
+      }
+    },
+    "response": {
+      "status": 200
+    }
+  }
+```
+
+The implementation makes use of WireMock's internal matching system and supports any implementation of `StringValuePattern`. As of WireMock 3.3, this includes
+`equalTo`,`equalToJson`,`matchesJsonPath`,`matchesJsonSchema`,`equalToXml`,`matchesXPath`,`contains`,`not`,`doesNotContain`,`matches`,`doesNotMatch`,`before`,
+`after`,`equalToDateTime`,`anything`,`absent`,`and`,`or`,`matchesPathTemplate`.
+For documentation on using these matchers, check the [WireMock documentation](https://wiremock.org/docs/request-matching/)
 
 ### Context update count match
 
@@ -770,7 +810,8 @@ for request matching as well. The following matchers are available:
 - `updateCountLessThan`
 - `updateCountMoreThan`
 
-As for other matchers, templating is supported. In case the provided value for this check is not numeric, it is handled as non-matching. No error will be reported or logged.
+As for other matchers, templating is supported. In case the provided value for this check is not numeric, it is handled as non-matching. No error will be
+reported or logged.
 
 ```json
 {
@@ -800,7 +841,8 @@ for request matching as well. The following matchers are available:
 - `listSizeLessThan`
 - `listSizeMoreThan`
 
-As for other matchers, templating is supported. In case the provided value for this check is not numeric, it is handled as non-matching. No error will be reported or logged.
+As for other matchers, templating is supported. In case the provided value for this check is not numeric, it is handled as non-matching. No error will be
+reported or logged.
 
 ```json
 {
@@ -820,6 +862,57 @@ As for other matchers, templating is supported. In case the provided value for t
   }
 }
 ```
+
+### Full flexible list entry property match
+
+Similar to properties, you have full flexibility into matching on a property of a list entry by specifying `list` and using one of WireMock's built-in matchers
+The basic syntax:
+
+```json
+"list": {
+  <index-a>: {
+    <property-a>: <matcher-a>,
+    <property-b>: <matcher-b>
+  },
+  <index-b>: {
+    <property-a>: <matcher-a>,
+    <property-b>: <matcher-b>
+  }
+}
+```
+
+As index, you can use the actual index as well as `first`, `last`, `-1`.
+
+Example:
+
+```json
+{
+  "request": {
+    "method": "GET",
+    "urlPattern": "/test/[^\/]+/[^\/]+",
+    "customMatcher": {
+      "name": "state-matcher",
+      "parameters": {
+        "list": {
+          "1": {
+            "myProperty": {
+              "contains": "myValue"
+            }
+          }
+        }
+      }
+    },
+    "response": {
+      "status": 200
+    }
+  }
+```
+
+The implementation makes use of WireMock's internal matching system and supports any implementation of `StringValuePattern`. As of WireMock 3.3, this includes
+`equalTo`,`equalToJson`,`matchesJsonPath`,`matchesJsonSchema`,`equalToXml`,`matchesXPath`,`contains`,`not`,`doesNotContain`,`matches`,`doesNotMatch`,`before`,
+`after`,`equalToDateTime`,`anything`,`absent`,`and`,`or`,`matchesPathTemplate`.
+For documentation on using these matchers, check the [WireMock documentation](https://wiremock.org/docs/request-matching/)
+
 
 ### Negative context exists match
 
@@ -931,10 +1024,10 @@ Example with bodyFileName:
 
 ### Missing properties and defaults
 
-Missing Helper properties as well as unknown context properties result in using a built-in default. 
+Missing Helper properties as well as unknown context properties result in using a built-in default.
 
 You can also specify a `default` for the state
-helper: `"clientId": "{{state context=request.pathSegments.[1] property='firstname' default='John'}}",` . 
+helper: `"clientId": "{{state context=request.pathSegments.[1] property='firstname' default='John'}}",` .
 
 If unsure, you may consult the log for to see whether an error occurred.
 
@@ -984,7 +1077,7 @@ and setting `verbose=true` or starting WireMock standalone (or docker) with `ver
 
 - EventListeners and Matchers report errors with WireMock-internal exceptions. Additionally, errors are logged.
   In order to see them, [register a notifier](https://wiremock.org/3.x/docs/configuration/#notification-logging).
-- Response templating errors are printed in the actual response body. 
+- Response templating errors are printed in the actual response body.
 - Various actions and decisions of this extensions are logged on info level, along with the context they are happening in.
 
 # Examples

@@ -19,6 +19,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.github.tomakehurst.wiremock.client.WireMock;
 import com.github.tomakehurst.wiremock.common.Json;
 import com.github.tomakehurst.wiremock.extension.Parameters;
+import com.github.tomakehurst.wiremock.stubbing.StubMapping;
 import io.restassured.http.ContentType;
 import org.apache.http.HttpStatus;
 import org.junit.jupiter.api.BeforeEach;
@@ -79,24 +80,8 @@ class StateTemplateHelperProviderExtensionTest extends AbstractTestBase {
         assertion.accept(result);
     }
 
-    private void createContextListPostStub(Map<String, Object> stateConfiguration) {
-        wm.stubFor(
-            post(urlEqualTo("/contexturl"))
-                .willReturn(WireMock.ok().withHeader("content-type", "application/json"))
-                .withServeEventListener(
-                    "recordState",
-                    Parameters.from(
-                        Map.of(
-                            "context", "{{jsonPath request.body '$.contextName'}}",
-                            "list", Map.of("addLast", stateConfiguration)
-                        )
-                    )
-                )
-        );
-    }
-
-    private void createContextGetStub(Map<String, String> body) {
-        wm.stubFor(
+    private StubMapping createContextGetStub(Map<String, String> body) {
+        return wm.stubFor(
             get(urlPathMatching("/contexturl/[^/]+"))
                 .willReturn(
                     WireMock.ok()
@@ -106,8 +91,8 @@ class StateTemplateHelperProviderExtensionTest extends AbstractTestBase {
         );
     }
 
-    private void createContextGetStub(String body) {
-        wm.stubFor(
+    private StubMapping createContextGetStub(String body) {
+        return wm.stubFor(
             get(urlPathMatching("/contexturl/[^/]+"))
                 .willReturn(
                     WireMock.ok()
@@ -117,20 +102,21 @@ class StateTemplateHelperProviderExtensionTest extends AbstractTestBase {
         );
     }
 
-    private void createContextStatePostStub(Map<String, Object> stateConfiguration) {
+    private StubMapping createContextListPostStub(Map<String, Object> listAddConfiguration) {
+        return createBasicContextPostStub(Map.of("list", Map.of("addLast", listAddConfiguration)));
+    }
 
-        wm.stubFor(
+    private StubMapping createContextStatePostStub(Map<String, Object> stateConfiguration) {
+        return createBasicContextPostStub(Map.of("state", stateConfiguration));
+    }
+
+    private StubMapping createBasicContextPostStub(Map<String, Object> basicConfiguration) {
+        var config = new HashMap<String, Object>(Map.of("context", "{{jsonPath request.body '$.contextName'}}"));
+        config.putAll(basicConfiguration);
+        return wm.stubFor(
             post(urlEqualTo("/contexturl"))
                 .willReturn(WireMock.ok().withHeader("content-type", "application/json"))
-                .withServeEventListener(
-                    "recordState",
-                    Parameters.from(
-                        Map.of(
-                            "context", "{{jsonPath request.body '$.contextName'}}",
-                            "state", stateConfiguration
-                        )
-                    )
-                )
+                .withServeEventListener("recordState", Parameters.from(config))
         );
     }
 
@@ -237,6 +223,56 @@ class StateTemplateHelperProviderExtensionTest extends AbstractTestBase {
                 createContextGetStubWithBodyFile("list_with_no_default.json");
 
                 getContextList(contextName, (result) -> assertThat(result).isEmpty());
+            }
+        }
+
+        @DisplayName("when accessing meta properties")
+        @Nested
+        public class MetaProperties {
+
+            private final String contextName = "unknownContext";
+
+            @DisplayName("property 'updateCount'")
+            @Nested
+            public class updateCount {
+
+                @DisplayName("uses built-in default")
+                @Test
+                public void test_updateCountNoDefault() {
+                    createContextGetStub(Map.of("updateCount", "{{state context=request.pathSegments.[1] property='updateCount'}}"));
+
+                    getContext(contextName, (result) -> assertThat(result).containsEntry("updateCount", "0"));
+                }
+
+                @DisplayName("uses specified default when configured")
+                @Test
+                public void test_updateCountWithDefault() {
+                    createContextGetStub(Map.of("updateCount", "{{state context=request.pathSegments.[1] property='updateCount' default='5'}}"));
+
+                    getContext(contextName, (result) -> assertThat(result).containsEntry("updateCount", "5"));
+                }
+            }
+
+            @DisplayName("property 'listSize'")
+            @Nested
+            public class listSize {
+
+                @DisplayName("uses built-in default")
+                @Test
+                public void test_ListSizeNoDefault() {
+                    createContextGetStub(Map.of("listSize", "{{state context=request.pathSegments.[1] property='listSize'}}"));
+
+                    getContext(contextName, (result) -> assertThat(result).containsEntry("listSize", "0"));
+                }
+
+                @DisplayName("uses specified default when configured")
+                @Test
+                public void test_listSizeWithDefault() {
+                    createContextGetStub(Map.of("listSize", "{{state context=request.pathSegments.[1] property='listSize' default='5'}}"));
+
+                    getContext(contextName, (result) -> assertThat(result).containsEntry("listSize", "5"));
+                }
+
             }
         }
     }
@@ -393,11 +429,63 @@ class StateTemplateHelperProviderExtensionTest extends AbstractTestBase {
     @DisplayName("with meta properties")
     @Nested
     public class MetaProperties {
+        private final String contextName = "knownContext";
 
-        @DisplayName("when a context is present")
+        @DisplayName("property 'updateCount'")
         @Nested
-        public class Present {
+        public class updateCount {
 
+            @BeforeEach
+            public void setup() {
+                createContextGetStub(Map.of("count", "{{state context=request.pathSegments.[1] property='updateCount'}}"));
+            }
+
+            @DisplayName("has correct value on initial context creation")
+            @Test
+            void test_initialValue_0() {
+                Map<String, Object> request = Map.of("contextValue", "aContextValue");
+                createContextStatePostStub(Map.of("contextValue", "{{jsonPath request.body '$.contextValue'}}"));
+
+                postContext(contextName, Map.of("contextValue", "aContextValue"));
+                getContext(contextName, (result) -> assertThat(result).containsEntry("count", "1"));
+            }
+
+            @DisplayName("is updated when adding a property")
+            @Test
+            void test_addingProperty_inc() {
+                createContextStatePostStub(Map.of("contextValue", "{{jsonPath request.body '$.contextValue'}}"));
+
+                postContext(contextName, Map.of("contextValue", "aContextValue"));
+                postContext(contextName, Map.of("contextValue", "anotherContextValue"));
+                getContext(contextName, (result) -> assertThat(result).containsEntry("count", "2"));
+            }
+        }
+
+        @DisplayName("property 'listSize'")
+        @Nested
+        public class listSize {
+            @BeforeEach
+            public void setup() {
+                createContextGetStub(Map.of("size", "{{state context=request.pathSegments.[1] property='listSize'}}"));
+                createContextListPostStub(Map.of("listValue", "{{jsonPath request.body '$.listValue'}}"));
+            }
+
+            @DisplayName("has correct value on initial context creation")
+            @Test
+            void test_initialValue_0() {
+                postContext(contextName, Map.of("contextValue", "aContextValue"));
+
+                getContext(contextName, (result) -> assertThat(result).containsEntry("size", "1"));
+            }
+
+            @DisplayName("is updated when adding a property")
+            @Test
+            void test_addingProperty_inc() {
+                postContext(contextName, Map.of("contextValue", "aContextValue"));
+                postContext(contextName, Map.of("contextValue", "anotherContextValue"));
+
+                getContext(contextName, (result) -> assertThat(result).containsEntry("size", "2"));
+            }
         }
 
         @DisplayName("when a context is not present")
