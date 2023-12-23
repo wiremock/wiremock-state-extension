@@ -18,6 +18,7 @@ import org.junit.jupiter.api.parallel.Execution;
 import org.wiremock.extensions.state.CaffeineStore;
 import org.wiremock.extensions.state.StateExtension;
 import org.wiremock.extensions.state.internal.ContextManager;
+import org.wiremock.extensions.state.internal.TransactionManager;
 
 import java.net.URI;
 import java.time.Duration;
@@ -40,7 +41,8 @@ public class StubMappingLoadingExampleTest {
 
     private static WireMockServer wireMockServer;
     private static final Store<String, Object> store = new CaffeineStore();
-    static final ContextManager contextManager = new ContextManager(store);
+    private static final TransactionManager transactionManager = new TransactionManager(store);
+    private static final ContextManager contextManager = new ContextManager(store, transactionManager);
 
 
     @BeforeAll
@@ -57,7 +59,6 @@ public class StubMappingLoadingExampleTest {
         wireMockServer = new WireMockServer(options);
         wireMockServer.start();
         WireMock.configureFor(wireMockServer.port());
-        Stubbing wm = wireMockServer;
 
         Locale.setDefault(Locale.ENGLISH);
         WireMock.create().port(wireMockServer.port()).build();
@@ -76,7 +77,7 @@ public class StubMappingLoadingExampleTest {
                 .statusCode(HttpStatus.SC_CREATED);
 
         awaitAndAssert(() -> Assertions.assertThat(contextManager.numUpdates(contextId)).isEqualTo(1));
-        assertThat(store.get(contextId).isPresent(), is(true));
+        assertThat(store.get(contextManager.createContextKey(contextId)).isPresent(), is(true));
 
 
         given()
@@ -87,7 +88,7 @@ public class StubMappingLoadingExampleTest {
                 .body("result", equalTo(entityId));
 
         awaitAndAssert(() -> Assertions.assertThat(contextManager.numUpdates(contextId)).isEqualTo(1));
-        assertThat(store.get(contextId).isPresent(), is(true));
+        assertThat(store.get(contextManager.createContextKey(contextId)).isPresent(), is(true));
 
         given()
                 .accept(ContentType.JSON)
@@ -96,7 +97,7 @@ public class StubMappingLoadingExampleTest {
                 .statusCode(HttpStatus.SC_OK);
 
         awaitAndAssert(() -> Assertions.assertThat(contextManager.numUpdates(contextId)).isEqualTo(0));
-        assertThat(store.get(contextId).isPresent(), is(false));
+        assertThat(store.get(contextManager.createContextKey(contextId)).isPresent(), is(false));
     }
 
     @Test

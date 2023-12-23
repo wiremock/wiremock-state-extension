@@ -13,26 +13,25 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.wiremock.extensions.state.internal;
+package org.wiremock.extensions.state.internal.model;
 
-public final class ContextTemplateModel {
+import java.util.function.Consumer;
 
-    private final Context context;
+public class Transaction {
+    private final String contextName;
+    private Boolean writeRecorded = false;
 
-    private ContextTemplateModel(Context context) {
-        this.context = context;
+    public Transaction(String contextName) {
+        this.contextName = contextName;
     }
 
-    public static ContextTemplateModel from(Context context) {
-        return new ContextTemplateModel(context);
+    public void recordWrite(Runnable runnable) {
+        if(!writeRecorded) {
+            runnable.run();
+            writeRecorded = true;
+        }
     }
-
-
-    public Long getReadCount() {
-        return context.getMatchCount();
-    }
-
-    public Long getUpdateCount() {
-        return context.getUpdateCount();
+    public String getContextName() {
+        return contextName;
     }
 }

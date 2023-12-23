@@ -24,9 +24,9 @@ import com.github.tomakehurst.wiremock.extension.responsetemplating.TemplateEngi
 import com.github.tomakehurst.wiremock.stubbing.ServeEvent;
 import org.apache.commons.lang3.StringUtils;
 import org.wiremock.extensions.state.internal.ContextManager;
-import org.wiremock.extensions.state.internal.DeleteStateParameters;
-import org.wiremock.extensions.state.internal.ResponseTemplateModel;
 import org.wiremock.extensions.state.internal.StateExtensionMixin;
+import org.wiremock.extensions.state.internal.api.DeleteStateParameters;
+import org.wiremock.extensions.state.internal.model.ResponseTemplateModel;
 
 import java.util.List;
 import java.util.Map;
@@ -72,122 +72,139 @@ public class DeleteStateEventListener implements ServeEventListener, StateExtens
             "response", ResponseTemplateModel.from(serveEvent.getResponse())
         );
         var configuration = Json.mapToObject(parameters, DeleteStateParameters.class);
-        Optional.ofNullable(configuration.getList()).ifPresentOrElse(
-            listConfig -> handleListDeletion(listConfig, createContextName(model, configuration.getContext()), model),
-            () -> handleContextDeletion(configuration, model)
-        );
-    }
-
-    private void handleContextDeletion(DeleteStateParameters configuration, Map<String, Object> model) {
-        if (configuration.getContext() != null) {
-            deleteContext(configuration.getContext(), model);
-        } else if (configuration.getContexts() != null) {
-            deleteContexts(configuration.getContexts(), model);
-        } else if (configuration.getContextsMatching() != null) {
-            deleteContextsMatching(configuration.getContextsMatching(), model);
-        } else {
-            throw createConfigurationError("Missing/invalid configuration for context deletion");
-        }
-    }
-
-    private void deleteContexts(List<String> rawContexts, Map<String, Object> model) {
-
-        var contexts = rawContexts.stream().map(it -> renderTemplate(model, it)).collect(Collectors.toList());
-        contextManager.onEach(context -> {
-            if(contexts.contains(context.getContextName())) {
-                contextManager.deleteContext(context.getContextName());
-            }
-        });
-    }
-
-    private void deleteContextsMatching(String rawRegex, Map<String, Object> model) {
-        try {
-            var regex = renderTemplate(model, rawRegex);
-            var pattern = Pattern.compile(regex);
-            contextManager.onEach(context -> {
-                if(pattern.matcher(context.getContextName()).matches()) {
-                    contextManager.deleteContext(context.getContextName());
-                }
-            });
-        } catch (PatternSyntaxException ex) {
-            throw createConfigurationError("Missing/invalid configuration for context deletion: %s", ex.getMessage());
-        }
-    }
-
-    private void deleteContext(String rawContext, Map<String, Object> model) {
-        contextManager.deleteContext(createContextName(model, rawContext));
-    }
-
-    private void handleListDeletion(DeleteStateParameters.ListParameters listConfig, String contextName, Map<String, Object> model) {
-        if (Boolean.TRUE.equals(listConfig.getDeleteFirst())) {
-            deleteFirst(contextName);
-        } else if (Boolean.TRUE.equals(listConfig.getDeleteLast())) {
-            deleteLast(contextName);
-        } else if (StringUtils.isNotBlank(listConfig.getDeleteIndex())) {
-            deleteIndex(listConfig, contextName, model);
-        } else if (listConfig.getDeleteWhere() != null &&
-            listConfig.getDeleteWhere().getProperty() != null &&
-            listConfig.getDeleteWhere().getValue() != null
-        ) {
-            deleteWhere(listConfig, contextName, model);
-        } else {
-            throw createConfigurationError("Missing/invalid configuration for list entry deletion");
-        }
-    }
-
-    private Long deleteFirst(String contextName) {
-        return contextManager.createOrUpdateContextList(contextName, maps -> {
-            if (!maps.isEmpty()) maps.removeFirst();
-            logger().info(contextName, "list::deleteFirst");
-        });
-    }
-
-    private void deleteLast(String contextName) {
-        contextManager.createOrUpdateContextList(contextName, maps -> {
-            if (!maps.isEmpty()) maps.removeLast();
-            logger().info(contextName, "list::deleteLast");
-        });
-    }
-
-    private void deleteIndex(DeleteStateParameters.ListParameters listConfig, String contextName, Map<String, Object> model) {
-        try {
-            var index = Integer.parseInt(renderTemplate(model, listConfig.getDeleteIndex()));
-            contextManager.createOrUpdateContextList(contextName, list -> {
-                list.remove(index);
-                logger().info(contextName, String.format("list::deleteIndex(%d)", index));
-            });
-        } catch (IndexOutOfBoundsException | NumberFormatException e) {
-            logger().info(contextName, String.format("Unknown or unparsable list index: '%s' - ignoring", listConfig.getDeleteIndex()));
-        }
-    }
-
-    private void deleteWhere(DeleteStateParameters.ListParameters listConfig, String contextName, Map<String, Object> model) {
-        var property = renderTemplate(model, listConfig.getDeleteWhere().getProperty());
-        var value = renderTemplate(model, listConfig.getDeleteWhere().getValue());
-        contextManager.createOrUpdateContextList(contextName, list -> {
-            var iterator = list.iterator();
-            while (iterator.hasNext()) {
-                var element = iterator.next();
-                if (Objects.equals(element.getOrDefault(property, null), value)) {
-                    iterator.remove();
-                    logger().info(contextName, String.format("list::deleteWhere(property=%s)", property));
-                    break;
-                }
-            }
-        });
-    }
-
-    private String createContextName(Map<String, Object> model, String rawContext) {
-        var context = Optional.ofNullable(rawContext).filter(StringUtils::isNotBlank)
-            .map(it -> renderTemplate(model, it))
-            .orElseThrow(() -> new ConfigurationException("no context specified"));
-        if (StringUtils.isBlank(context)) {
-            throw createConfigurationError("Context cannot be blank");
-        }
-        return context;
+        new ListenerInstance(serveEvent.getId().toString(), model, configuration).run();
     }
 
     private String renderTemplate(Object context, String value) {
         return templateEngine.getUncachedTemplate(value).apply(context);
+    }
+
+    private class ListenerInstance {
+        private final String requestId;
+        private final DeleteStateParameters configuration;
+        private final Map<String, Object> model;
+
+        ListenerInstance(String requestId, Map<String, Object> model, DeleteStateParameters configuration) {
+            this.requestId = requestId;
+            this.model = model;
+            this.configuration = configuration;
+        }
+
+        public void run() {
+            Optional.ofNullable(configuration.getList()).ifPresentOrElse(
+                listConfig -> handleListDeletion(listConfig, createContextName(configuration.getContext())),
+                this::handleContextDeletion
+            );
+        }
+
+        private void handleContextDeletion() {
+            if (configuration.getContext() != null) {
+                deleteContext(configuration.getContext());
+            } else if (configuration.getContexts() != null) {
+                deleteContexts(configuration.getContexts());
+            } else if (configuration.getContextsMatching() != null) {
+                deleteContextsMatching(configuration.getContextsMatching());
+            } else {
+                throw createConfigurationError("Missing/invalid configuration for context deletion");
+            }
+        }
+
+        private void deleteContexts(List<String> rawContexts) {
+
+            var contexts = rawContexts.stream().map(it -> renderTemplate(model, it)).collect(Collectors.toList());
+            contextManager.onEach(requestId, context -> {
+                if (contexts.contains(context.getContextName())) {
+                    contextManager.deleteContext(requestId, context.getContextName());
+                }
+            });
+        }
+
+        private void deleteContextsMatching(String rawRegex) {
+            try {
+                var regex = renderTemplate(model, rawRegex);
+                var pattern = Pattern.compile(regex);
+                contextManager.onEach(requestId, context -> {
+                    if (pattern.matcher(context.getContextName()).matches()) {
+                        contextManager.deleteContext(requestId, context.getContextName());
+                    }
+                });
+            } catch (PatternSyntaxException ex) {
+                throw createConfigurationError("Missing/invalid configuration for context deletion: %s", ex.getMessage());
+            }
+        }
+
+        private void deleteContext(String rawContext) {
+            contextManager.deleteContext(requestId, createContextName(rawContext));
+        }
+
+        private void handleListDeletion(DeleteStateParameters.ListParameters listConfig, String contextName) {
+            if (Boolean.TRUE.equals(listConfig.getDeleteFirst())) {
+                deleteFirst(contextName);
+            } else if (Boolean.TRUE.equals(listConfig.getDeleteLast())) {
+                deleteLast(contextName);
+            } else if (StringUtils.isNotBlank(listConfig.getDeleteIndex())) {
+                deleteIndex(listConfig, contextName);
+            } else if (listConfig.getDeleteWhere() != null &&
+                listConfig.getDeleteWhere().getProperty() != null &&
+                listConfig.getDeleteWhere().getValue() != null
+            ) {
+                deleteWhere(listConfig, contextName);
+            } else {
+                throw createConfigurationError("Missing/invalid configuration for list entry deletion");
+            }
+        }
+
+        private void deleteFirst(String contextName) {
+            contextManager.createOrUpdateContextList(requestId, contextName, maps -> {
+                if (!maps.isEmpty()) maps.removeFirst();
+                logger().info(contextName, "list::deleteFirst");
+            });
+        }
+
+        private void deleteLast(String contextName) {
+            contextManager.createOrUpdateContextList(requestId, contextName, maps -> {
+                if (!maps.isEmpty()) maps.removeLast();
+                logger().info(contextName, "list::deleteLast");
+            });
+        }
+
+        private void deleteIndex(DeleteStateParameters.ListParameters listConfig, String contextName) {
+            try {
+                var index = Integer.parseInt(renderTemplate(model, listConfig.getDeleteIndex()));
+                contextManager.createOrUpdateContextList(requestId, contextName, list -> {
+                    list.remove(index);
+                    logger().info(contextName, String.format("list::deleteIndex(%d)", index));
+                });
+            } catch (IndexOutOfBoundsException | NumberFormatException e) {
+                logger().info(contextName, String.format("Unknown or unparsable list index: '%s' - ignoring", listConfig.getDeleteIndex()));
+            }
+        }
+
+        private void deleteWhere(DeleteStateParameters.ListParameters listConfig, String contextName) {
+            var property = renderTemplate(model, listConfig.getDeleteWhere().getProperty());
+            var value = renderTemplate(model, listConfig.getDeleteWhere().getValue());
+            contextManager.createOrUpdateContextList(requestId, contextName, list -> {
+                var iterator = list.iterator();
+                while (iterator.hasNext()) {
+                    var element = iterator.next();
+                    if (Objects.equals(element.getOrDefault(property, null), value)) {
+                        iterator.remove();
+                        logger().info(contextName, String.format("list::deleteWhere(property=%s)", property));
+                        break;
+                    }
+                }
+            });
+        }
+
+        private String createContextName(String rawContext) {
+            var context = Optional.ofNullable(rawContext).filter(StringUtils::isNotBlank)
+                .map(it -> renderTemplate(model, it))
+                .orElseThrow(() -> new ConfigurationException("no context specified"));
+            if (StringUtils.isBlank(context)) {
+                throw createConfigurationError("Context cannot be blank");
+            }
+            return context;
+        }
+
     }
 }

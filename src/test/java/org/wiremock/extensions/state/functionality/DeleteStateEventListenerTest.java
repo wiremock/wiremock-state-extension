@@ -30,6 +30,7 @@ import java.net.URI;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
@@ -159,13 +160,14 @@ class DeleteStateEventListenerTest extends AbstractTestBase {
                 postContext(contextName, Map.of(property, valueOne));
                 postContext(contextName, Map.of(property, valueTwo));
                 postContext(contextName, Map.of(property, valueThree));
-                assertThat(contextManager.getContext(contextName))
+                assertThat(contextManager.getContextCopy(contextName))
                     .isPresent()
                     .hasValueSatisfying((context) -> {
                         assertThat(context.getList()).hasSize(3);
                         assertThat(context.getList().get(0)).containsEntry(property, valueOne);
                         assertThat(context.getList().get(1)).containsEntry(property, valueTwo);
                         assertThat(context.getList().get(2)).containsEntry(property, valueThree);
+                        assertThat(context.getUpdateCount()).isEqualTo(3);
                     });
             }
 
@@ -183,9 +185,19 @@ class DeleteStateEventListenerTest extends AbstractTestBase {
                 void test_deleteFirstOne() {
                     getContext(contextName, HttpStatus.SC_OK, (result) -> assertThat(result).isEmpty());
 
-                    assertThat(contextManager.getContext(contextName))
+                    assertThat(contextManager.getContextCopy(contextName))
                         .isPresent()
                         .hasValueSatisfying((context) -> assertThat(context.getList()).noneSatisfy(it -> assertThat(it).containsEntry(property, valueOne)));
+                }
+
+                @DisplayName("updates numUpdates")
+                @Test
+                void test_updatesCounter() {
+                    getContext(contextName, HttpStatus.SC_OK, (result) -> assertThat(result).isEmpty());
+
+                    assertThat(contextManager.getContextCopy(contextName))
+                        .isPresent()
+                        .hasValueSatisfying((context) -> assertThat(context.getUpdateCount()).isEqualTo(4));
                 }
 
                 @DisplayName("does not delete other entries")
@@ -193,7 +205,7 @@ class DeleteStateEventListenerTest extends AbstractTestBase {
                 void test_doesNotDeleteOther() {
                     getContext(contextName, HttpStatus.SC_OK, (result) -> assertThat(result).isEmpty());
 
-                    assertThat(contextManager.getContext(contextName))
+                    assertThat(contextManager.getContextCopy(contextName))
                         .isPresent()
                         .hasValueSatisfying((context) -> {
                             assertThat(context.getList()).hasSize(2);
@@ -209,7 +221,7 @@ class DeleteStateEventListenerTest extends AbstractTestBase {
                     getContext(contextName, HttpStatus.SC_OK, (result) -> assertThat(result).isEmpty());
                     getContext(contextName, HttpStatus.SC_OK, (result) -> assertThat(result).isEmpty());
 
-                    assertThat(contextManager.getContext(contextName))
+                    assertThat(contextManager.getContextCopy(contextName))
                         .isPresent()
                         .hasValueSatisfying((context) -> assertThat(context.getList()).isEmpty());
                 }
@@ -225,7 +237,7 @@ class DeleteStateEventListenerTest extends AbstractTestBase {
                     postContext(contextName, Map.of(property, valueTwo));
                     postContext(contextName, Map.of(property, valueFour));
 
-                    assertThat(contextManager.getContext(contextName))
+                    assertThat(contextManager.getContextCopy(contextName))
                         .isPresent()
                         .hasValueSatisfying((context) -> {
                             assertThat(context.getList()).hasSize(2);
@@ -249,9 +261,19 @@ class DeleteStateEventListenerTest extends AbstractTestBase {
                 void test_deleteLastOne() {
                     getContext(contextName, HttpStatus.SC_OK, (result) -> assertThat(result).isEmpty());
 
-                    assertThat(contextManager.getContext(contextName))
+                    assertThat(contextManager.getContextCopy(contextName))
                         .isPresent()
                         .hasValueSatisfying((context) -> assertThat(context.getList()).noneSatisfy(it -> assertThat(it).containsEntry(property, valueThree)));
+                }
+
+                @DisplayName("updates numUpdates")
+                @Test
+                void test_updatesCounter() {
+                    getContext(contextName, HttpStatus.SC_OK, (result) -> assertThat(result).isEmpty());
+
+                    assertThat(contextManager.getContextCopy(contextName))
+                        .isPresent()
+                        .hasValueSatisfying((context) -> assertThat(context.getUpdateCount()).isEqualTo(4));
                 }
 
                 @DisplayName("does not delete other entries")
@@ -259,7 +281,7 @@ class DeleteStateEventListenerTest extends AbstractTestBase {
                 void test_doesNotDeleteOther() {
                     getContext(contextName, HttpStatus.SC_OK, (result) -> assertThat(result).isEmpty());
 
-                    assertThat(contextManager.getContext(contextName))
+                    assertThat(contextManager.getContextCopy(contextName))
                         .isPresent()
                         .hasValueSatisfying((context) -> {
                             assertThat(context.getList()).hasSize(2);
@@ -275,7 +297,7 @@ class DeleteStateEventListenerTest extends AbstractTestBase {
                     getContext(contextName, HttpStatus.SC_OK, (result) -> assertThat(result).isEmpty());
                     getContext(contextName, HttpStatus.SC_OK, (result) -> assertThat(result).isEmpty());
 
-                    assertThat(contextManager.getContext(contextName))
+                    assertThat(contextManager.getContextCopy(contextName))
                         .isPresent()
                         .hasValueSatisfying((context) -> assertThat(context.getList()).isEmpty());
                 }
@@ -291,7 +313,7 @@ class DeleteStateEventListenerTest extends AbstractTestBase {
                     postContext(contextName, Map.of(property, valueTwo));
                     postContext(contextName, Map.of(property, valueFour));
 
-                    assertThat(contextManager.getContext(contextName))
+                    assertThat(contextManager.getContextCopy(contextName))
                         .isPresent()
                         .hasValueSatisfying((context) -> {
                             assertThat(context.getList()).hasSize(2);
@@ -315,17 +337,28 @@ class DeleteStateEventListenerTest extends AbstractTestBase {
                 void test_deleteIndexZero() {
                     getContext(contextName + "/0", HttpStatus.SC_OK, (result) -> assertThat(result).isEmpty());
 
-                    assertThat(contextManager.getContext(contextName))
+                    assertThat(contextManager.getContextCopy(contextName))
                         .isPresent()
                         .hasValueSatisfying((context) -> assertThat(context.getList()).noneSatisfy(it -> assertThat(it).containsEntry(property, valueOne)));
                 }
+
+                @DisplayName("updates numUpdates")
+                @Test
+                void test_updatesCounter() {
+                    getContext(contextName + "/0", HttpStatus.SC_OK, (result) -> assertThat(result).isEmpty());
+
+                    assertThat(contextManager.getContextCopy(contextName))
+                        .isPresent()
+                        .hasValueSatisfying((context) -> assertThat(context.getUpdateCount()).isEqualTo(4));
+                }
+
 
                 @DisplayName("can delete middle entry")
                 @Test
                 void test_deleteIndexOne() {
                     getContext(contextName + "/1", HttpStatus.SC_OK, (result) -> assertThat(result).isEmpty());
 
-                    assertThat(contextManager.getContext(contextName))
+                    assertThat(contextManager.getContextCopy(contextName))
                         .isPresent()
                         .hasValueSatisfying((context) -> assertThat(context.getList()).noneSatisfy(it -> assertThat(it).containsEntry(property, valueTwo)));
                 }
@@ -335,7 +368,7 @@ class DeleteStateEventListenerTest extends AbstractTestBase {
                 void test_deleteIndexTwo() {
                     getContext(contextName + "/2", HttpStatus.SC_OK, (result) -> assertThat(result).isEmpty());
 
-                    assertThat(contextManager.getContext(contextName))
+                    assertThat(contextManager.getContextCopy(contextName))
                         .isPresent()
                         .hasValueSatisfying((context) -> assertThat(context.getList()).noneSatisfy(it -> assertThat(it).containsEntry(property, valueThree)));
                 }
@@ -347,7 +380,7 @@ class DeleteStateEventListenerTest extends AbstractTestBase {
                     getContext(contextName + "/1", HttpStatus.SC_OK, (result) -> assertThat(result).isEmpty());
 
 
-                    assertThat(contextManager.getContext(contextName))
+                    assertThat(contextManager.getContextCopy(contextName))
                         .isPresent()
                         .hasValueSatisfying((context) -> {
                             assertThat(context.getList()).hasSize(2);
@@ -363,7 +396,7 @@ class DeleteStateEventListenerTest extends AbstractTestBase {
                     getContext(contextName + "/1", HttpStatus.SC_OK, (result) -> assertThat(result).isEmpty());
                     getContext(contextName + "/0", HttpStatus.SC_OK, (result) -> assertThat(result).isEmpty());
 
-                    assertThat(contextManager.getContext(contextName))
+                    assertThat(contextManager.getContextCopy(contextName))
                         .isPresent()
                         .hasValueSatisfying((context) -> assertThat(context.getList()).isEmpty());
                 }
@@ -379,7 +412,7 @@ class DeleteStateEventListenerTest extends AbstractTestBase {
                     postContext(contextName, Map.of(property, valueTwo));
                     postContext(contextName, Map.of(property, valueFour));
 
-                    assertThat(contextManager.getContext(contextName))
+                    assertThat(contextManager.getContextCopy(contextName))
                         .isPresent()
                         .hasValueSatisfying((context) -> {
                             assertThat(context.getList()).hasSize(2);
@@ -403,17 +436,28 @@ class DeleteStateEventListenerTest extends AbstractTestBase {
                 void test_deleteIndexZero() {
                     getContext(contextName + "/" + valueOne, HttpStatus.SC_OK, (result) -> assertThat(result).isEmpty());
 
-                    assertThat(contextManager.getContext(contextName))
+                    assertThat(contextManager.getContextCopy(contextName))
                         .isPresent()
                         .hasValueSatisfying((context) -> assertThat(context.getList()).noneSatisfy(it -> assertThat(it).containsEntry(property, valueOne)));
                 }
+
+                @DisplayName("updates numUpdates")
+                @Test
+                void test_updatesCounter() {
+                    getContext(contextName + "/" + valueOne, HttpStatus.SC_OK, (result) -> assertThat(result).isEmpty());
+
+                    assertThat(contextManager.getContextCopy(contextName))
+                        .isPresent()
+                        .hasValueSatisfying((context) -> assertThat(context.getUpdateCount()).isEqualTo(4));
+                }
+
 
                 @DisplayName("can delete middle entry")
                 @Test
                 void test_deleteIndexOne() {
                     getContext(contextName + "/" + valueTwo, HttpStatus.SC_OK, (result) -> assertThat(result).isEmpty());
 
-                    assertThat(contextManager.getContext(contextName))
+                    assertThat(contextManager.getContextCopy(contextName))
                         .isPresent()
                         .hasValueSatisfying((context) -> assertThat(context.getList()).noneSatisfy(it -> assertThat(it).containsEntry(property, valueTwo)));
                 }
@@ -423,7 +467,7 @@ class DeleteStateEventListenerTest extends AbstractTestBase {
                 void test_deleteIndexTwo() {
                     getContext(contextName + "/" + valueThree, HttpStatus.SC_OK, (result) -> assertThat(result).isEmpty());
 
-                    assertThat(contextManager.getContext(contextName))
+                    assertThat(contextManager.getContextCopy(contextName))
                         .isPresent()
                         .hasValueSatisfying((context) -> assertThat(context.getList()).noneSatisfy(it -> assertThat(it).containsEntry(property, valueThree)));
                 }
@@ -435,7 +479,7 @@ class DeleteStateEventListenerTest extends AbstractTestBase {
                     getContext(contextName + "/" + valueTwo, HttpStatus.SC_OK, (result) -> assertThat(result).isEmpty());
 
 
-                    assertThat(contextManager.getContext(contextName))
+                    assertThat(contextManager.getContextCopy(contextName))
                         .isPresent()
                         .hasValueSatisfying((context) -> {
                             assertThat(context.getList()).hasSize(2);
@@ -451,7 +495,7 @@ class DeleteStateEventListenerTest extends AbstractTestBase {
                     getContext(contextName + "/" + valueOne, HttpStatus.SC_OK, (result) -> assertThat(result).isEmpty());
                     getContext(contextName + "/" + valueThree, HttpStatus.SC_OK, (result) -> assertThat(result).isEmpty());
 
-                    assertThat(contextManager.getContext(contextName))
+                    assertThat(contextManager.getContextCopy(contextName))
                         .isPresent()
                         .hasValueSatisfying((context) -> assertThat(context.getList()).isEmpty());
                 }
@@ -467,7 +511,7 @@ class DeleteStateEventListenerTest extends AbstractTestBase {
                     postContext(contextName, Map.of(property, valueTwo));
                     postContext(contextName, Map.of(property, valueFour));
 
-                    assertThat(contextManager.getContext(contextName))
+                    assertThat(contextManager.getContextCopy(contextName))
                         .isPresent()
                         .hasValueSatisfying((context) -> {
                             assertThat(context.getList()).hasSize(2);
@@ -502,7 +546,7 @@ class DeleteStateEventListenerTest extends AbstractTestBase {
                 void test_deleteContext() {
                     getContext(contextName, HttpStatus.SC_OK, (result) -> assertThat(result).isEmpty());
 
-                    assertThat(contextManager.getContext(contextName)).isEmpty();
+                    assertThat(contextManager.getContextCopy(contextName)).isEmpty();
                 }
 
                 @DisplayName("double deletion does not cause an error")
@@ -511,7 +555,7 @@ class DeleteStateEventListenerTest extends AbstractTestBase {
                     getContext(contextName, HttpStatus.SC_OK, (result) -> assertThat(result).isEmpty());
                     getContext(contextName, HttpStatus.SC_OK, (result) -> assertThat(result).isEmpty());
 
-                    assertThat(contextManager.getContext(contextName)).isEmpty();
+                    assertThat(contextManager.getContextCopy(contextName)).isEmpty();
                 }
 
                 @DisplayName("does not delete other contexts")
@@ -519,7 +563,7 @@ class DeleteStateEventListenerTest extends AbstractTestBase {
                 void test_doesNotDeleteOther() {
                     getContext(contextName, HttpStatus.SC_OK, (result) -> assertThat(result).isEmpty());
 
-                    assertThat(contextManager.getContext(otherContextName)).isPresent();
+                    assertThat(contextManager.getContextCopy(otherContextName)).isPresent();
                 }
             }
 
@@ -537,9 +581,9 @@ class DeleteStateEventListenerTest extends AbstractTestBase {
                     postContext(contextNameOne, Map.of());
                     postContext(contextNameTwo, Map.of());
                     postContext(contextNameThree, Map.of());
-                    assertThat(contextManager.getContext(contextNameOne)).isPresent();
-                    assertThat(contextManager.getContext(contextNameTwo)).isPresent();
-                    assertThat(contextManager.getContext(contextNameThree)).isPresent();
+                    assertThat(contextManager.getContextCopy(contextNameOne)).isPresent();
+                    assertThat(contextManager.getContextCopy(contextNameTwo)).isPresent();
+                    assertThat(contextManager.getContextCopy(contextNameThree)).isPresent();
 
                 }
 
@@ -550,7 +594,7 @@ class DeleteStateEventListenerTest extends AbstractTestBase {
 
                     getContext("any", HttpStatus.SC_OK, (result) -> assertThat(result).isEmpty());
 
-                    assertThat(contextManager.getContext(contextNameTwo)).isEmpty();
+                    assertThat(contextManager.getContextCopy(contextNameTwo)).isEmpty();
                 }
 
                 @DisplayName("deletes multiple context")
@@ -560,9 +604,9 @@ class DeleteStateEventListenerTest extends AbstractTestBase {
 
                     getContext("any", HttpStatus.SC_OK, (result) -> assertThat(result).isEmpty());
 
-                    assertThat(contextManager.getContext(contextNameOne)).isEmpty();
-                    assertThat(contextManager.getContext(contextNameTwo)).isPresent();
-                    assertThat(contextManager.getContext(contextNameThree)).isEmpty();
+                    assertThat(contextManager.getContextCopy(contextNameOne)).isEmpty();
+                    assertThat(contextManager.getContextCopy(contextNameTwo)).isPresent();
+                    assertThat(contextManager.getContextCopy(contextNameThree)).isEmpty();
                 }
 
                 @DisplayName("deletes all context")
@@ -572,7 +616,7 @@ class DeleteStateEventListenerTest extends AbstractTestBase {
 
                     getContext(contextNameTwo, HttpStatus.SC_OK, (result) -> assertThat(result).isEmpty());
 
-                    assertThat(contextManager.getContext(contextNameTwo)).isEmpty();
+                    assertThat(contextManager.getContextCopy(contextNameTwo)).isEmpty();
                 }
 
                 @DisplayName("double deletion does not cause an error")
@@ -582,9 +626,9 @@ class DeleteStateEventListenerTest extends AbstractTestBase {
                     getContext("any", HttpStatus.SC_OK, (result) -> assertThat(result).isEmpty());
                     getContext("any", HttpStatus.SC_OK, (result) -> assertThat(result).isEmpty());
 
-                    assertThat(contextManager.getContext(contextNameTwo)).isEmpty();
-                    assertThat(contextManager.getContext(contextNameOne)).isPresent();
-                    assertThat(contextManager.getContext(contextNameThree)).isPresent();
+                    assertThat(contextManager.getContextCopy(contextNameTwo)).isEmpty();
+                    assertThat(contextManager.getContextCopy(contextNameOne)).isPresent();
+                    assertThat(contextManager.getContextCopy(contextNameThree)).isPresent();
                 }
 
                 @DisplayName("does not delete other contexts")
@@ -594,9 +638,9 @@ class DeleteStateEventListenerTest extends AbstractTestBase {
 
                     getContext("any", HttpStatus.SC_OK, (result) -> assertThat(result).isEmpty());
 
-                    assertThat(contextManager.getContext(contextNameTwo)).isEmpty();
-                    assertThat(contextManager.getContext(contextNameOne)).isPresent();
-                    assertThat(contextManager.getContext(contextNameThree)).isPresent();
+                    assertThat(contextManager.getContextCopy(contextNameTwo)).isEmpty();
+                    assertThat(contextManager.getContextCopy(contextNameOne)).isPresent();
+                    assertThat(contextManager.getContextCopy(contextNameThree)).isPresent();
                 }
             }
 
@@ -614,9 +658,9 @@ class DeleteStateEventListenerTest extends AbstractTestBase {
                     postContext(contextNameOne, Map.of());
                     postContext(contextNameTwo, Map.of());
                     postContext(contextNameThree, Map.of());
-                    assertThat(contextManager.getContext(contextNameOne)).isPresent();
-                    assertThat(contextManager.getContext(contextNameTwo)).isPresent();
-                    assertThat(contextManager.getContext(contextNameThree)).isPresent();
+                    assertThat(contextManager.getContextCopy(contextNameOne)).isPresent();
+                    assertThat(contextManager.getContextCopy(contextNameTwo)).isPresent();
+                    assertThat(contextManager.getContextCopy(contextNameThree)).isPresent();
 
                 }
 
@@ -627,7 +671,7 @@ class DeleteStateEventListenerTest extends AbstractTestBase {
 
                     getContext("any", HttpStatus.SC_OK, (result) -> assertThat(result).isEmpty());
 
-                    assertThat(contextManager.getContext(contextNameOne)).isEmpty();
+                    assertThat(contextManager.getContextCopy(contextNameOne)).isEmpty();
                 }
 
                 @DisplayName("deletes multiple context")
@@ -637,9 +681,9 @@ class DeleteStateEventListenerTest extends AbstractTestBase {
 
                     getContext("any", HttpStatus.SC_OK, (result) -> assertThat(result).isEmpty());
 
-                    assertThat(contextManager.getContext(contextNameOne)).isPresent();
-                    assertThat(contextManager.getContext(contextNameTwo)).isEmpty();
-                    assertThat(contextManager.getContext(contextNameThree)).isEmpty();
+                    assertThat(contextManager.getContextCopy(contextNameOne)).isPresent();
+                    assertThat(contextManager.getContextCopy(contextNameTwo)).isEmpty();
+                    assertThat(contextManager.getContextCopy(contextNameThree)).isEmpty();
                 }
 
                 @DisplayName("deletes all context")
@@ -649,9 +693,9 @@ class DeleteStateEventListenerTest extends AbstractTestBase {
 
                     getContext(contextNameTwo, HttpStatus.SC_OK, (result) -> assertThat(result).isEmpty());
 
-                    assertThat(contextManager.getContext(contextNameOne)).isEmpty();
-                    assertThat(contextManager.getContext(contextNameTwo)).isEmpty();
-                    assertThat(contextManager.getContext(contextNameThree)).isEmpty();
+                    assertThat(contextManager.getContextCopy(contextNameOne)).isEmpty();
+                    assertThat(contextManager.getContextCopy(contextNameTwo)).isEmpty();
+                    assertThat(contextManager.getContextCopy(contextNameThree)).isEmpty();
                 }
 
                 @DisplayName("double deletion does not cause an error")
@@ -661,9 +705,9 @@ class DeleteStateEventListenerTest extends AbstractTestBase {
                     getContext("any", HttpStatus.SC_OK, (result) -> assertThat(result).isEmpty());
                     getContext("any", HttpStatus.SC_OK, (result) -> assertThat(result).isEmpty());
 
-                    assertThat(contextManager.getContext(contextNameOne)).isEmpty();
-                    assertThat(contextManager.getContext(contextNameTwo)).isPresent();
-                    assertThat(contextManager.getContext(contextNameThree)).isPresent();
+                    assertThat(contextManager.getContextCopy(contextNameOne)).isEmpty();
+                    assertThat(contextManager.getContextCopy(contextNameTwo)).isPresent();
+                    assertThat(contextManager.getContextCopy(contextNameThree)).isPresent();
                 }
 
                 @DisplayName("does not delete other contexts")
@@ -673,9 +717,9 @@ class DeleteStateEventListenerTest extends AbstractTestBase {
 
                     getContext("any", HttpStatus.SC_OK, (result) -> assertThat(result).isEmpty());
 
-                    assertThat(contextManager.getContext(contextNameTwo)).isEmpty();
-                    assertThat(contextManager.getContext(contextNameOne)).isPresent();
-                    assertThat(contextManager.getContext(contextNameThree)).isPresent();
+                    assertThat(contextManager.getContextCopy(contextNameTwo)).isEmpty();
+                    assertThat(contextManager.getContextCopy(contextNameOne)).isPresent();
+                    assertThat(contextManager.getContextCopy(contextNameThree)).isPresent();
                 }
             }
         }
@@ -704,7 +748,7 @@ class DeleteStateEventListenerTest extends AbstractTestBase {
             );
 
             getContext(contextName, HttpStatus.SC_OK, (result) -> assertThat(result).isEmpty());
-            assertThat(contextManager.getContext(contextName)).isEmpty();
+            assertThat(contextManager.getContextCopy(contextName)).isEmpty();
         }
 
         private void assertListConfigurationError() {
@@ -746,7 +790,7 @@ class DeleteStateEventListenerTest extends AbstractTestBase {
 
                 assertContextDeletionConfigurationError();
 
-                assertThat(contextManager.getContext(contextName)).isPresent();
+                assertThat(contextManager.getContextCopy(contextName)).isPresent();
             }
 
             @DisplayName("ignores empty array")
@@ -756,7 +800,7 @@ class DeleteStateEventListenerTest extends AbstractTestBase {
 
                 getContext("any", HttpStatus.SC_OK, (result) -> assertThat(result).isEmpty());
 
-                assertThat(contextManager.getContext(contextName)).isPresent();
+                assertThat(contextManager.getContextCopy(contextName)).isPresent();
             }
         }
 
@@ -773,7 +817,7 @@ class DeleteStateEventListenerTest extends AbstractTestBase {
 
                 assertContextDeletionConfigurationError();
 
-                assertThat(contextManager.getContext(contextName)).isPresent();
+                assertThat(contextManager.getContextCopy(contextName)).isPresent();
             }
 
             @DisplayName("fails on invalid regex")
@@ -786,7 +830,7 @@ class DeleteStateEventListenerTest extends AbstractTestBase {
 
                 assertContextDeletionConfigurationError();
 
-                assertThat(contextManager.getContext(contextName)).isPresent();
+                assertThat(contextManager.getContextCopy(contextName)).isPresent();
             }
         }
 
@@ -936,14 +980,14 @@ class DeleteStateEventListenerTest extends AbstractTestBase {
                 return checks.entrySet().stream().map(entry ->
                     DynamicTest.dynamicTest(entry.getKey(), () -> {
                         wm.resetAll();
-                        contextManager.deleteAllContexts();
+                        contextManager.deleteAllContexts(UUID.randomUUID().toString());
                         createPostStubList(Map.of("listValue", "{{jsonPath request.body '$.listValue'}}"));
                         createGetStubList(Map.of(entry.getKey(), entry.getValue()));
                         postContext(otherContextName, body);
-                        assertThat(contextManager.getContext(otherContextName)).isPresent();
+                        assertThat(contextManager.getContextCopy(otherContextName)).isPresent();
 
                         getContext(contextName, HttpStatus.SC_OK, (result) -> assertThat(result).isEmpty());
-                        assertThat(contextManager.getContext(otherContextName)).isPresent().hasValueSatisfying(it -> {
+                        assertThat(contextManager.getContextCopy(otherContextName)).isPresent().hasValueSatisfying(it -> {
                             assertThat(it.getList()).hasSize(1).first().asInstanceOf(MAP).containsAllEntriesOf(body);
                         });
                     })
@@ -976,7 +1020,7 @@ class DeleteStateEventListenerTest extends AbstractTestBase {
                 postContext(otherContextName, Map.of());
 
                 getContext(contextName, HttpStatus.SC_OK, (result) -> assertThat(result).isEmpty());
-                assertThat(contextManager.getContext(otherContextName)).isPresent();
+                assertThat(contextManager.getContextCopy(otherContextName)).isPresent();
             }
         }
     }

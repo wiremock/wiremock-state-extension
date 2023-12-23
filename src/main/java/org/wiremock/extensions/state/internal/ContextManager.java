@@ -16,6 +16,7 @@
 package org.wiremock.extensions.state.internal;
 
 import com.github.tomakehurst.wiremock.store.Store;
+import org.wiremock.extensions.state.internal.model.Context;
 
 import java.util.LinkedList;
 import java.util.Map;
@@ -27,21 +28,18 @@ import static org.wiremock.extensions.state.internal.ExtensionLogger.logger;
 
 public class ContextManager {
 
+    private final String CONTEXT_KEY_PREFIX = "context:";
     private final Store<String, Object> store;
+    private final TransactionManager transactionManager;
 
-    public ContextManager(Store<String, Object> store) {
+    public ContextManager(Store<String, Object> store, TransactionManager transactionManager) {
         this.store = store;
+        this.transactionManager = transactionManager;
     }
 
     private static Supplier<Context> createNewContext(String contextName) {
         logger().info(contextName, "created");
         return () -> new Context(contextName);
-    }
-
-    public Object getState(String contextName, String property) {
-        synchronized (store) {
-            return store.get(contextName).map(it -> ((Context) it).getProperties().get(property)).orElse(null);
-        }
     }
 
     /**
@@ -50,42 +48,67 @@ public class ContextManager {
      * @param contextName The context name to search for.
      * @return Optional with a copy of the context - or empty.
      */
-    public Optional<Context> getContext(String contextName) {
-        synchronized (store) {
-            return getSafeContextCopy(contextName);
-        }
+    public Optional<Context> getContextCopy(String contextName) {
+        return getSafeContextCopy(contextName);
     }
 
-    public void deleteContext(String contextName) {
-        synchronized (store) {
-            store.remove(contextName);
+    /**
+     * Deletes a context by its name.
+     *
+     * @param requestId   ID of the request performing this action.
+     * @param contextName Name of the context to delete.
+     */
+    public void deleteContext(String requestId, String contextName) {
+        transactionManager.withTransaction(requestId, contextName, (transaction) -> {
+            store.remove(createContextKey(contextName));
             logger().info(contextName, "deleted");
-        }
+        });
     }
 
-    public void onEach(Consumer<Context> consumer) {
-        synchronized(store) {
-            store.getAllKeys().forEach(contextName -> {
-                getSafeContextCopy(contextName).ifPresent(consumer);
+    /**
+     * Iterates over all contexts, passing a safe copy to the consumer.
+     * <p>
+     * Silently ignores non-existing contexts.
+     *
+     * @param requestId ID of the request performing this action.
+     * @param consumer  Action to be performed on the copy of the context.
+     */
+    public void onEach(String requestId, Consumer<Context> consumer) {
+        store.getAllKeys()
+            .filter(it -> it.startsWith(CONTEXT_KEY_PREFIX))
+            .forEach(key -> {
+                var contextName = getContextNameFromContextKey(key);
+                transactionManager
+                    .withTransaction(
+                        requestId,
+                        contextName,
+                        (transaction) -> {
+                            getSafeContextCopy(contextName).ifPresent(consumer);
+                        });
             });
-        }
     }
 
-    public void deleteAllContexts() {
-        synchronized (store) {
-            logger().info("allContexts", "deleted");
-            store.clear();
-        }
+    public void deleteAllContexts(String requestId) {
+        store.getAllKeys()
+            .filter(it -> it.startsWith(CONTEXT_KEY_PREFIX))
+            .forEach(key -> {
+                transactionManager
+                    .withTransaction(
+                        requestId,
+                        getContextNameFromContextKey(key),
+                        (transaction) -> {
+                            store.remove(key);
+                        });
+                logger().info("allContexts", "deleted");
+            });
     }
 
-    public Long createOrUpdateContextState(String contextName, Map<String, String> properties) {
-        synchronized (store) {
-            var context = store.get(contextName)
+    public void createOrUpdateContextState(String requestId, String contextName, Map<String, String> properties) {
+        transactionManager.withTransaction(requestId, contextName, (transaction) -> {
+            var contextKey = createContextKey(contextName);
+            var context = store.get(contextKey)
                 .map(it -> (Context) it)
-                .map(it -> {
-                    it.incUpdateCount();
-                    return it;
-                }).orElseGet(createNewContext(contextName));
+                .orElseGet(createNewContext(contextName));
             properties.forEach((k, v) -> {
                 if (v.equals("null")) {
                     context.getProperties().remove(k);
@@ -95,38 +118,36 @@ public class ContextManager {
                     logger().info(contextName, String.format("property '%s' updated", k));
                 }
             });
-            store.put(contextName, context);
-            return context.getUpdateCount();
-        }
+            transaction.recordWrite(context::incUpdateCount);
+            store.put(contextKey, context);
+        });
     }
 
-    public Long createOrUpdateContextList(String contextName, Consumer<LinkedList<Map<String, String>>> consumer) {
-        synchronized (store) {
-            var context = store.get(contextName)
+    public void createOrUpdateContextList(String requestId, String contextName, Consumer<LinkedList<Map<String, String>>> consumer) {
+        transactionManager.withTransaction(requestId, contextName, (transaction) -> {
+            var contextKey = createContextKey(contextName);
+            var context = store.get(contextKey)
                 .map(it -> (Context) it)
-                .map(it -> {
-                    it.incUpdateCount();
-                    return it;
-                }).orElseGet(createNewContext(contextName));
+                .orElseGet(createNewContext(contextName));
             consumer.accept(context.getList());
-            store.put(contextName, context);
-            return context.getUpdateCount();
-        }
+            transaction.recordWrite(context::incUpdateCount);
+            store.put(contextKey, context);
+        });
     }
 
     public Long numUpdates(String contextName) {
-        synchronized (store) {
-            return store.get(contextName).map(it -> ((Context) it).getUpdateCount()).orElse(0L);
-        }
+        return store.get(createContextKey(contextName)).map(it -> ((Context) it).getUpdateCount()).orElse(0L);
     }
 
-    public Long numReads(String contextName) {
-        synchronized (store) {
-            return store.get(contextName).map(it -> ((Context) it).getMatchCount()).orElse(0L);
-        }
+    private String getContextNameFromContextKey(String key) {
+        return key.substring(CONTEXT_KEY_PREFIX.length());
+    }
+
+    public String createContextKey(String contextName) {
+        return CONTEXT_KEY_PREFIX + contextName;
     }
 
     private Optional<Context> getSafeContextCopy(String contextName) {
-        return store.get(contextName).map(it -> (Context) it).map(Context::new);
+        return store.get(createContextKey(contextName)).map(it -> (Context) it).map(Context::new);
     }
 }

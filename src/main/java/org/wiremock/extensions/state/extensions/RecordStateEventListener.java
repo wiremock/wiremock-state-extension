@@ -24,9 +24,9 @@ import com.github.tomakehurst.wiremock.extension.responsetemplating.TemplateEngi
 import com.github.tomakehurst.wiremock.stubbing.ServeEvent;
 import org.apache.commons.lang3.StringUtils;
 import org.wiremock.extensions.state.internal.ContextManager;
-import org.wiremock.extensions.state.internal.RecordStateParameters;
-import org.wiremock.extensions.state.internal.ResponseTemplateModel;
 import org.wiremock.extensions.state.internal.StateExtensionMixin;
+import org.wiremock.extensions.state.internal.api.RecordStateParameters;
+import org.wiremock.extensions.state.internal.model.ResponseTemplateModel;
 
 import java.util.Map;
 import java.util.Optional;
@@ -57,9 +57,7 @@ public class RecordStateEventListener implements ServeEventListener, StateExtens
             "response", ResponseTemplateModel.from(serveEvent.getResponse())
         );
         var configuration = Json.mapToObject(parameters, RecordStateParameters.class);
-        var contextName = createContextName(model, parameters);
-        handleState(contextName, model, configuration);
-        handleList(contextName, model, configuration);
+        new ListenerInstance(serveEvent.getId().toString(), model, configuration).run();
     }
 
     @Override
@@ -72,57 +70,77 @@ public class RecordStateEventListener implements ServeEventListener, StateExtens
         return false;
     }
 
-    private void handleState(String contextName, Map<String, Object> model, RecordStateParameters parameters) {
-        Optional.ofNullable(parameters.getState())
-            .ifPresent(configuration ->
-                contextManager.createOrUpdateContextState(contextName, getPropertiesFromConfiguration(model, configuration))
-            );
-    }
-
-    private Map<String, String> getPropertiesFromConfiguration(Map<String, Object> model, Map<String, String> configuration) {
-        return configuration.entrySet()
-            .stream()
-            .map(entry -> Map.entry(entry.getKey(), renderTemplate(model, entry.getValue())))
-            .collect(Collectors.toUnmodifiableMap(Map.Entry::getKey, Map.Entry::getValue));
-    }
-
-    private void handleList(String contextName, Map<String, Object> model, RecordStateParameters parameters) {
-        Optional.ofNullable(parameters.getList())
-            .ifPresent(listConfiguration -> {
-                    Optional.ofNullable(listConfiguration.getAddFirst())
-                        .ifPresent(configuration -> addFirst(contextName, model, configuration));
-                    Optional.ofNullable(listConfiguration.getAddLast())
-                        .ifPresent(configuration -> addLast(contextName, model, configuration));
-                }
-            );
-    }
-
-    private Long addFirst(String contextName, Map<String, Object> model, Map<String, String> configuration) {
-        return contextManager.createOrUpdateContextList(contextName, list -> {
-            list.addFirst(getPropertiesFromConfiguration(model, configuration));
-            logger().info(contextName, "list::addFirst");
-        });
-    }
-
-    private Long addLast(String contextName, Map<String, Object> model, Map<String, String> configuration) {
-        return contextManager.createOrUpdateContextList(contextName, list -> {
-            list.addLast(getPropertiesFromConfiguration(model, configuration));
-            logger().info(contextName, "list::addLast");
-        });
-    }
-
-    private String createContextName(Map<String, Object> model, Parameters parameters) {
-        var rawContext = Optional.ofNullable(parameters.getString("context"))
-            .filter(StringUtils::isNotBlank)
-            .orElseThrow(() -> new ConfigurationException("no context specified"));
-        String context = renderTemplate(model, rawContext);
-        if (StringUtils.isBlank(context)) {
-            throw createConfigurationError("context cannot be blank");
-        }
-        return context;
-    }
 
     private String renderTemplate(Object context, String value) {
         return templateEngine.getUncachedTemplate(value).apply(context);
+    }
+
+    private class ListenerInstance {
+        private final String requestId;
+        private final RecordStateParameters parameters;
+        private final Map<String, Object> model;
+        private final String contextName;
+
+        ListenerInstance(String requestId, Map<String, Object> model, RecordStateParameters parameters) {
+            this.requestId = requestId;
+            this.model = model;
+            this.parameters = parameters;
+            this.contextName = createContextName();
+        }
+
+        void run() {
+            handleState();
+            handleList();
+        }
+
+        private String createContextName() {
+            var rawContext = Optional.ofNullable(parameters.getContext())
+                .filter(StringUtils::isNotBlank)
+                .orElseThrow(() -> new ConfigurationException("no context specified"));
+            String context = renderTemplate(model, rawContext);
+            if (StringUtils.isBlank(context)) {
+                throw createConfigurationError("context cannot be blank");
+            }
+            return context;
+        }
+
+        private void handleState() {
+            Optional.ofNullable(parameters.getState())
+                .ifPresent(configuration ->
+                    contextManager.createOrUpdateContextState(requestId, contextName, getPropertiesFromConfiguration(configuration))
+                );
+        }
+
+        private Map<String, String> getPropertiesFromConfiguration(Map<String, String> configuration) {
+            return configuration.entrySet()
+                .stream()
+                .map(entry -> Map.entry(entry.getKey(), renderTemplate(model, entry.getValue())))
+                .collect(Collectors.toUnmodifiableMap(Map.Entry::getKey, Map.Entry::getValue));
+        }
+
+        private void handleList() {
+            Optional.ofNullable(parameters.getList())
+                .ifPresent(listConfiguration -> {
+                        Optional.ofNullable(listConfiguration.getAddFirst())
+                            .ifPresent(this::addFirst);
+                        Optional.ofNullable(listConfiguration.getAddLast())
+                            .ifPresent(this::addLast);
+                    }
+                );
+        }
+
+        private void addFirst(Map<String, String> configuration) {
+            contextManager.createOrUpdateContextList(requestId, contextName, list -> {
+                list.addFirst(getPropertiesFromConfiguration(configuration));
+                logger().info(contextName, "list::addFirst");
+            });
+        }
+
+        private void addLast(Map<String, String> configuration) {
+            contextManager.createOrUpdateContextList(requestId, contextName, list -> {
+                list.addLast(getPropertiesFromConfiguration(configuration));
+                logger().info(contextName, "list::addLast");
+            });
+        }
     }
 }

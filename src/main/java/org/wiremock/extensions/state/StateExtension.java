@@ -24,7 +24,9 @@ import org.wiremock.extensions.state.extensions.DeleteStateEventListener;
 import org.wiremock.extensions.state.extensions.RecordStateEventListener;
 import org.wiremock.extensions.state.extensions.StateRequestMatcher;
 import org.wiremock.extensions.state.extensions.StateTemplateHelperProviderExtension;
+import org.wiremock.extensions.state.extensions.TransactionEventListener;
 import org.wiremock.extensions.state.internal.ContextManager;
+import org.wiremock.extensions.state.internal.TransactionManager;
 
 import java.util.Collections;
 import java.util.List;
@@ -52,15 +54,18 @@ public class StateExtension implements ExtensionFactory {
     private final StateTemplateHelperProviderExtension stateTemplateHelperProviderExtension;
     private final RecordStateEventListener recordStateEventListener;
     private final DeleteStateEventListener deleteStateEventListener;
+    private final TransactionEventListener transactionEventListener;
     private final StateRequestMatcher stateRequestMatcher;
 
     public StateExtension(Store<String, Object> store) {
-        var contextManager = new ContextManager(store);
+        var transactionManager = new TransactionManager(store);
+        var contextManager = new ContextManager(store, transactionManager);
         this.stateTemplateHelperProviderExtension = new StateTemplateHelperProviderExtension(contextManager);
         var templateEngine = new TemplateEngine(stateTemplateHelperProviderExtension.provideTemplateHelpers(), null, Collections.emptySet(), false);
 
         this.recordStateEventListener = new RecordStateEventListener(contextManager, templateEngine);
         this.deleteStateEventListener = new DeleteStateEventListener(contextManager, templateEngine);
+        this.transactionEventListener = new TransactionEventListener(transactionManager);
         this.stateRequestMatcher = new StateRequestMatcher(contextManager, templateEngine);
     }
 
@@ -69,6 +74,7 @@ public class StateExtension implements ExtensionFactory {
         return List.of(
             recordStateEventListener,
             deleteStateEventListener,
+            transactionEventListener,
             stateRequestMatcher,
             stateTemplateHelperProviderExtension
         );
