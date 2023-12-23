@@ -311,7 +311,7 @@ The state is recorded in `serveEventListeners` of a stub. The following function
     - to delete a selective property, set it to `null` (as string).
 - `list` : stores a state in a list. Can be used to prepend/append new states to an existing list. List elements cannot be modified (only read/deleted).
 
-`state` and `list` can be used in the same `ServeEventListener` (would count as two updates). Adding multiple `recordState` `ServeEventListener` is supported.
+`state` and `list` can be used in the same `ServeEventListener` (would count as ONE updates). Adding multiple `recordState` `ServeEventListener` is supported.
 
 The following parameters have to be provided:
 
@@ -803,7 +803,9 @@ For documentation on using these matchers, check the [WireMock documentation](ht
 
 ### Context update count match
 
-Whenever the serve event listener `recordState` is processed, the internal context update counter is increased. The number can be used
+Whenever a request with a serve event listener `recordState` or `deleteState` is processed, the internal context update counter is increased.
+The update count is increased by one whenever there is at least one change to a context (so: property adding/change, list entry addition/deletion). Multiple
+event listeners with multiple changes of a single context within a single request only result in an increase by one.
 for request matching as well. The following matchers are available:
 
 - `updateCountEqualTo`
@@ -1069,6 +1071,20 @@ body file with handlebars to ignore a missing property:
 {{/with}}
 }
 ```
+
+# Distributed setups and concurrency
+
+This extension is at the moment not optimized for distributed setups or high degrees concurrency. While it will basically work, there are some limitations
+that should be held into account:
+
+- The store used for storing the state is on instance-level only
+  - while it can be exchanged for a distributed store, any atomicity assurance on instance level is not replicated to the distributed setup. Thus concurrent operations on different instances might result in state overwrites
+- Lock-level is basically the whole context store
+  - while the lock time is kept small, this can still impact measurements when being used in load tests
+- Single updates to contexts (property additions or changes, list entry additions or deletions) are atomic on instance level
+- Concurrent requests are currently allowed to change the same context. Atomicity prevents overwrites but does not provide something like a transaction, so: the context can change while a request is performed
+
+For any kind of usage with parallel write requests, it's recommended to use a different context for each parallel stream.
 
 # Debugging
 

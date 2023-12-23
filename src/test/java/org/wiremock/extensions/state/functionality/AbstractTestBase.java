@@ -28,8 +28,10 @@ import org.junit.jupiter.api.parallel.Execution;
 import org.wiremock.extensions.state.CaffeineStore;
 import org.wiremock.extensions.state.StateExtension;
 import org.wiremock.extensions.state.internal.ContextManager;
+import org.wiremock.extensions.state.internal.TransactionManager;
 
 import java.time.Duration;
+import java.util.UUID;
 
 import static com.github.tomakehurst.wiremock.core.WireMockConfiguration.wireMockConfig;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -41,7 +43,8 @@ import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 public class AbstractTestBase {
     protected static final ObjectMapper mapper = new ObjectMapper();
     protected static final CaffeineStore store = new CaffeineStore();
-    protected static final ContextManager contextManager = new ContextManager(store);
+    protected static final TransactionManager transactionManager = new TransactionManager(store);
+    protected static final ContextManager contextManager = new ContextManager(store, transactionManager);
 
     @RegisterExtension
     public static WireMockExtension wm = WireMockExtension.newInstance()
@@ -60,7 +63,7 @@ public class AbstractTestBase {
     @BeforeEach
     void setupBase() {
         wm.resetAll();
-        contextManager.deleteAllContexts();
+        contextManager.deleteAllContexts(UUID.randomUUID().toString());
     }
 
     protected void assertContextNumUpdates(String context, int expected) {

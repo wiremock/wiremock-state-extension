@@ -22,7 +22,6 @@ import org.apache.commons.lang3.NotImplementedException;
 import org.apache.commons.lang3.RandomStringUtils;
 import org.apache.http.HttpStatus;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -34,7 +33,6 @@ import java.util.Map;
 import static com.github.tomakehurst.wiremock.client.WireMock.urlPathMatching;
 import static io.restassured.RestAssured.given;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.awaitility.Awaitility.await;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 
 class RecordStateEventListenerTest extends AbstractTestBase {
@@ -43,6 +41,7 @@ class RecordStateEventListenerTest extends AbstractTestBase {
     void setup() {
         createStatePostStub();
         createListPostStub();
+        createStateAndListPostStub();
     }
 
     private void postRequest(String path, String contextValueOne, String contextValueTwo) {
@@ -124,6 +123,45 @@ class RecordStateEventListenerTest extends AbstractTestBase {
         );
     }
 
+    private void createStateAndListPostStub() {
+        wm.stubFor(
+            WireMock.post(urlPathMatching("/stateAndList/[^/]+"))
+                .willReturn(
+                    WireMock.ok()
+                        .withHeader("content-type", "application/json")
+                        .withBody("{}")
+                )
+                .withServeEventListener(
+                    "recordState",
+                    Parameters.from(
+                        Map.of(
+                            "context", "{{request.pathSegments.[1]}}",
+                            "list", Map.of(
+                                "addFirst", Map.of(
+                                    "stateValueOne", "{{jsonPath request.body '$.contextValueOne'}}",
+                                    "stateValueTwo", "{{jsonPath request.body '$.contextValueTwo'}}"
+                                )
+                            )
+                        )
+                    )
+                )
+                .withServeEventListener(
+                    "recordState",
+                    Parameters.from(
+                        Map.of(
+                            "context", "{{request.pathSegments.[1]}}",
+                            "state", Map.of(
+                                "stateValueOne", "{{jsonPath request.body '$.contextValueOne'}}",
+                                "stateValueTwoWithoutDefault", "{{jsonPath request.body '$.contextValueTwo'}}",
+                                "stateValueTwoWithDefault", "{{jsonPath request.body '$.contextValueTwo' default='stateValueTwoDefaultValue'}}",
+                                "previousStateValueTwo", "{{state context=request.pathSegments.[1] property='stateValueTwoWithoutDefault' default='noPrevious'}}"
+                            )
+                        )
+                    )
+                )
+        );
+    }
+
     @Nested
     public class State {
 
@@ -148,7 +186,7 @@ class RecordStateEventListenerTest extends AbstractTestBase {
 
             assertThat(contextManager.numUpdates(contextName)).isEqualTo(1);
 
-            assertThat(contextManager.getContext(contextName))
+            assertThat(contextManager.getContextCopy(contextName))
                 .isPresent()
                 .hasValueSatisfying(it -> {
                         assertThat(it.getProperties())
@@ -168,7 +206,7 @@ class RecordStateEventListenerTest extends AbstractTestBase {
 
             assertThat(contextManager.numUpdates(contextName)).isEqualTo(2);
 
-            assertThat(contextManager.getContext(contextName))
+            assertThat(contextManager.getContextCopy(contextName))
                 .isPresent()
                 .hasValueSatisfying(it -> {
                         assertThat(it.getProperties())
@@ -189,7 +227,7 @@ class RecordStateEventListenerTest extends AbstractTestBase {
 
             assertThat(contextManager.numUpdates(contextName)).isEqualTo(2);
 
-            assertThat(contextManager.getContext(contextName))
+            assertThat(contextManager.getContextCopy(contextName))
                 .isPresent()
                 .hasValueSatisfying(it -> {
                         assertThat(it.getProperties())
@@ -217,7 +255,7 @@ class RecordStateEventListenerTest extends AbstractTestBase {
         }
 
         private void assertContext(String contextNameTwo, String stateValueOne, String stateValueTwoWithoutDefault, String stateValueTwoWithDefault, String statePrevious) {
-            assertThat(contextManager.getContext(contextNameTwo))
+            assertThat(contextManager.getContextCopy(contextNameTwo))
                 .isPresent()
                 .hasValueSatisfying(it -> {
                         assertThat(it.getList()).isEmpty();
@@ -264,7 +302,7 @@ class RecordStateEventListenerTest extends AbstractTestBase {
         }
 
         private void assertContext(String contextNameTwo, Integer size, Integer index, String stateValueOne, String stateValueTwo) {
-            assertThat(contextManager.getContext(contextNameTwo))
+            assertThat(contextManager.getContextCopy(contextNameTwo))
                 .isPresent()
                 .hasValueSatisfying(it -> {
                         assertThat(it.getList())
@@ -323,11 +361,22 @@ class RecordStateEventListenerTest extends AbstractTestBase {
             assertContextNumUpdates(contextTwo, 1);
         }
 
-        @Disabled
+        @Test
+        void test_addListEntry_ok() {
+            var contextOne = RandomStringUtils.randomAlphabetic(5);
+
+            postRequest("list", contextOne, "one");
+            postRequest("list", contextOne, "one");
+
+            assertContextNumUpdates("first-" + contextOne, 2);
+        }
+
         @DisplayName("update count only increased by one when both property and list are updated")
         @Test
         void test_updatePropertyAndList_incOne() {
-            throw new NotImplementedException();
+            var context = RandomStringUtils.randomAlphabetic(5);
+            postRequest("stateAndList", context, "one");
+            assertContextNumUpdates(context, 1);
         }
     }
 }

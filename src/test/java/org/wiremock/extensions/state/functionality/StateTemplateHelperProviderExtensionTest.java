@@ -286,7 +286,7 @@ class StateTemplateHelperProviderExtensionTest extends AbstractTestBase {
         public void setup() {
             createContextStatePostStub(Map.of());
             postContext(contextName, Map.of());
-            assertThat(contextManager.getContext(contextName)).isPresent();
+            assertThat(contextManager.getContextCopy(contextName)).isPresent();
         }
 
         @DisplayName("when no default is specified returns empty string")
@@ -331,7 +331,7 @@ class StateTemplateHelperProviderExtensionTest extends AbstractTestBase {
         public void setup() {
             createContextStatePostStub(Map.of());
             postContext(contextName, Map.of());
-            assertThat(contextManager.getContext(contextName)).isPresent();
+            assertThat(contextManager.getContextCopy(contextName)).isPresent();
         }
 
         @DisplayName("when accessing first element")

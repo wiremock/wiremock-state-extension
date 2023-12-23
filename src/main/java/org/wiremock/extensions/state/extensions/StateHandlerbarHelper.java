@@ -22,7 +22,7 @@ import com.github.tomakehurst.wiremock.extension.responsetemplating.helpers.Hand
 import com.jayway.jsonpath.JsonPath;
 import com.jayway.jsonpath.PathNotFoundException;
 import org.apache.commons.lang3.StringUtils;
-import org.wiremock.extensions.state.internal.Context;
+import org.wiremock.extensions.state.internal.model.Context;
 import org.wiremock.extensions.state.internal.ContextManager;
 
 import java.util.ArrayList;
@@ -84,7 +84,7 @@ public class StateHandlerbarHelper extends HandlebarsHelper<Object> {
     }
 
     private Optional<Object> getProperty(String contextName, String property, String defaultValue) {
-        return contextManager.getContext(contextName)
+        return contextManager.getContextCopy(contextName)
             .map(context ->
                 Stream.of(SpecialProperties.values())
                     .filter(it -> it.name().equals(property))
@@ -111,7 +111,7 @@ public class StateHandlerbarHelper extends HandlebarsHelper<Object> {
     }
 
     private Optional<Object> getList(String contextName, String list) {
-        return contextManager.getContext(contextName)
+        return contextManager.getContextCopy(contextName)
             .flatMap(context -> {
                 try {
                     return Optional.of(JsonPath.read(context.getList(), list));

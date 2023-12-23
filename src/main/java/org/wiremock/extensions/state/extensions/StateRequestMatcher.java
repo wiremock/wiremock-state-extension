@@ -21,13 +21,12 @@ import com.github.tomakehurst.wiremock.extension.Parameters;
 import com.github.tomakehurst.wiremock.extension.responsetemplating.RequestTemplateModel;
 import com.github.tomakehurst.wiremock.extension.responsetemplating.TemplateEngine;
 import com.github.tomakehurst.wiremock.http.Request;
-import com.github.tomakehurst.wiremock.matching.ContentPattern;
 import com.github.tomakehurst.wiremock.matching.MatchResult;
 import com.github.tomakehurst.wiremock.matching.RequestMatcherExtension;
 import com.github.tomakehurst.wiremock.matching.StringValuePattern;
-import org.wiremock.extensions.state.internal.Context;
+import org.wiremock.extensions.state.internal.model.Context;
 import org.wiremock.extensions.state.internal.ContextManager;
-import org.wiremock.extensions.state.internal.ContextTemplateModel;
+import org.wiremock.extensions.state.internal.model.ContextTemplateModel;
 import org.wiremock.extensions.state.internal.StateExtensionMixin;
 
 import java.util.Arrays;
@@ -107,7 +106,7 @@ public class StateRequestMatcher extends RequestMatcherExtension implements Stat
     }
 
     private MatchResult hasContext(Map<String, Object> model, Parameters parameters, String template) {
-        return contextManager.getContext(renderTemplate(model, template))
+        return contextManager.getContextCopy(renderTemplate(model, template))
             .map(context -> {
                 List<Map.Entry<ContextMatcher, Object>> matchers = getMatchers(parameters);
                 if (matchers.isEmpty()) {
@@ -131,7 +130,7 @@ public class StateRequestMatcher extends RequestMatcherExtension implements Stat
 
     private MatchResult hasNotContext(Map<String, Object> model, String template) {
         var context = renderTemplate(model, template);
-        if (contextManager.getContext(context).isEmpty()) {
+        if (contextManager.getContextCopy(context).isEmpty()) {
             logger().info(context, "hasNotContext matched");
             return MatchResult.exactMatch();
         } else {

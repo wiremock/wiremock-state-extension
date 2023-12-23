@@ -534,7 +534,7 @@ class StateRequestMatcherTest extends AbstractTestBase {
                 @DisplayName("succeeds on matching count")
                 @Test
                 void test_countMatches_ok() {
-                    createGetStub("updateCountEqualTo", "4");
+                    createGetStub("updateCountEqualTo", "2");
 
                     getAndAssertContextMatcher(context, HttpStatus.SC_OK);
                 }
@@ -550,7 +550,7 @@ class StateRequestMatcherTest extends AbstractTestBase {
                 @DisplayName("fails on non-matching count")
                 @Test
                 void test_countDoesNotMatch_fail() {
-                    createGetStub("updateCountEqualTo", "2");
+                    createGetStub("updateCountEqualTo", "1");
 
                     getAndAssertContextMatcher(context, HttpStatus.SC_NOT_FOUND);
                 }
@@ -563,7 +563,7 @@ class StateRequestMatcherTest extends AbstractTestBase {
                 @DisplayName("succeeds on matching count")
                 @Test
                 void test_countMatches_ok() {
-                    createGetStub("updateCountLessThan", "5");
+                    createGetStub("updateCountLessThan", "3");
 
                     getAndAssertContextMatcher(context, HttpStatus.SC_OK);
                 }
@@ -579,7 +579,7 @@ class StateRequestMatcherTest extends AbstractTestBase {
                 @DisplayName("fails on non-matching count")
                 @Test
                 void test_countDoesNotMatch_fail() {
-                    createGetStub("updateCountLessThan", "4");
+                    createGetStub("updateCountLessThan", "2");
 
                     getAndAssertContextMatcher(context, HttpStatus.SC_NOT_FOUND);
                 }
@@ -592,7 +592,7 @@ class StateRequestMatcherTest extends AbstractTestBase {
                 @DisplayName("succeeds on matching count")
                 @Test
                 void test_countMatches_ok() {
-                    createGetStub("updateCountMoreThan", "3");
+                    createGetStub("updateCountMoreThan", "1");
 
                     getAndAssertContextMatcher(context, HttpStatus.SC_OK);
                 }
@@ -608,7 +608,7 @@ class StateRequestMatcherTest extends AbstractTestBase {
                 @DisplayName("fails on non-matching count")
                 @Test
                 void test_countDoesNotMatch_fail() {
-                    createGetStub("updateCountMoreThan", "4");
+                    createGetStub("updateCountMoreThan", "2");
 
                     getAndAssertContextMatcher(context, HttpStatus.SC_NOT_FOUND);
                 }
