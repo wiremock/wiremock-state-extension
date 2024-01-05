@@ -58,10 +58,7 @@ public class StateHandlerbarHelper extends HandlebarsHelper<Object> {
         if (StringUtils.isEmpty(contextName)) {
             return handleError("'context' cannot be empty");
         }
-        if (StringUtils.isBlank(property) && StringUtils.isBlank(list)) {
-            return handleError("Either 'property' or 'list' has to be set");
-        }
-        if (StringUtils.isNotBlank(property) && StringUtils.isNotBlank(list)) {
+        if (StringUtils.isNotBlank(property) == StringUtils.isNotBlank(list)) {
             return handleError("Either 'property' or 'list' has to be set");
         }
         if (StringUtils.isNotBlank(property)) {

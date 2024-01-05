@@ -199,7 +199,7 @@ public class DeleteStateEventListener implements ServeEventListener, StateExtens
         private String createContextName(String rawContext) {
             var context = Optional.ofNullable(rawContext).filter(StringUtils::isNotBlank)
                 .map(it -> renderTemplate(model, it))
-                .orElseThrow(() -> new ConfigurationException("no context specified"));
+                .orElseThrow(() -> new ConfigurationException("No context specified"));
             if (StringUtils.isBlank(context)) {
                 throw createConfigurationError("Context cannot be blank");
             }

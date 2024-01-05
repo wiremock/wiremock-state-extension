@@ -751,7 +751,7 @@ class DeleteStateEventListenerTest extends AbstractTestBase {
             assertThat(contextManager.getContextCopy(contextName)).isEmpty();
         }
 
-        private void assertListConfigurationError() {
+        private void assertConfigurationError(String errorMessage) {
             getContext(contextName, HttpStatus.SC_INTERNAL_SERVER_ERROR,
                 (result) -> assertThat(result)
                     .hasEntrySatisfying(
@@ -759,22 +759,45 @@ class DeleteStateEventListenerTest extends AbstractTestBase {
                         message ->
                             assertThat(message)
                                 .asInstanceOf(STRING)
-                                .contains("Missing/invalid configuration for list")
+                                .contains(errorMessage)
                     )
             );
         }
 
+        private void assertListConfigurationError() {
+            assertConfigurationError("Missing/invalid configuration for list");
+        }
+
         private void assertContextDeletionConfigurationError() {
-            getContext(contextName, HttpStatus.SC_INTERNAL_SERVER_ERROR,
-                (result) -> assertThat(result)
-                    .hasEntrySatisfying(
-                        "message",
-                        message ->
-                            assertThat(message)
-                                .asInstanceOf(STRING)
-                                .contains("Missing/invalid configuration for context deletion")
-                    )
-            );
+            assertConfigurationError("Missing/invalid configuration for context deletion");
+        }
+
+        @Nested
+        public class ContextName {
+
+            @DisplayName("fails on missing context name")
+            @Test
+            public void test_missingContextName_fail() {
+                createGetStub(Map.of());
+
+                assertConfigurationError("Missing/invalid configuration for context deletion");
+            }
+
+            @DisplayName("fails on empty context name")
+            @Test
+            public void test_emptyContextName_fail() {
+                createGetStub(Map.of("context", ""));
+
+                assertConfigurationError("No context specified");
+            }
+
+            @DisplayName("fails on template resulting in empty context name")
+            @Test
+            public void test_templateToEmptyContextName_fail() {
+                createGetStub(Map.of("context", "{{jsonPath '{}' '$.empty'}}"));
+
+                assertConfigurationError("Context cannot be blank");
+            }
         }
 
         @DisplayName("with array exact match")
