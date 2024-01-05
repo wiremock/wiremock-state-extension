@@ -418,6 +418,13 @@ class StateRequestMatcherTest extends AbstractTestBase {
                 postAndAssertContextValue(context, contextValueThree);
             }
 
+            @DisplayName("fails on invalid configuration")
+            @Test
+            void test_invalidConfiguration_fail() {
+                createGetStub("list", "invalid");
+                getAndAssertContextMatcher(context, HttpStatus.SC_INTERNAL_SERVER_ERROR);
+            }
+
             @DisplayName("fails on invalid built-in matchers")
             @Test
             void test_evaluateBuiltinMatchers_fail() {

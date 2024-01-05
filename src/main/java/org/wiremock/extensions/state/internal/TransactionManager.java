@@ -33,20 +33,6 @@ public class TransactionManager {
         this.store = store;
     }
 
-    public <T> T withTransaction(String requestId, String contextName, Function<Transaction, T> function) {
-        var transactionKey = createTransactionKey(requestId);
-        synchronized (store) {
-            @SuppressWarnings("unchecked") var requestTransactions = store.get(transactionKey).map(it -> (Map<String, Transaction>) it).orElse(new HashMap<>());
-            var contextTransaction = requestTransactions.getOrDefault(contextName, new Transaction(contextName));
-            try {
-                return function.apply(contextTransaction);
-            } finally {
-                requestTransactions.put(contextName, contextTransaction);
-                store.put(transactionKey, requestTransactions);
-            }
-        }
-    }
-
     public void withTransaction(String requestId, String contextName, Consumer<Transaction> consumer) {
         var transactionKey = createTransactionKey(requestId);
         synchronized (store) {
@@ -80,6 +66,4 @@ public class TransactionManager {
     private String createTransactionKey(String requestId) {
         return TRANSACTION_KEY_PREFIX + requestId;
     }
-
-
 }

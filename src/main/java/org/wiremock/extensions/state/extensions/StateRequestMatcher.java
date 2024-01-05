@@ -24,10 +24,10 @@ import com.github.tomakehurst.wiremock.http.Request;
 import com.github.tomakehurst.wiremock.matching.MatchResult;
 import com.github.tomakehurst.wiremock.matching.RequestMatcherExtension;
 import com.github.tomakehurst.wiremock.matching.StringValuePattern;
-import org.wiremock.extensions.state.internal.model.Context;
 import org.wiremock.extensions.state.internal.ContextManager;
-import org.wiremock.extensions.state.internal.model.ContextTemplateModel;
 import org.wiremock.extensions.state.internal.StateExtensionMixin;
+import org.wiremock.extensions.state.internal.model.Context;
+import org.wiremock.extensions.state.internal.model.ContextTemplateModel;
 
 import java.util.Arrays;
 import java.util.Collection;
@@ -67,23 +67,23 @@ public class StateRequestMatcher extends RequestMatcherExtension implements Stat
             .collect(Collectors.toUnmodifiableList());
     }
 
-    private static <T> T cast(Object object) {
+    private static <T> T mapToObject(Map<String, Object> map, Class<T> klass) {
         try {
-            //noinspection unchecked
-            return (T) object;
-        } catch (ClassCastException ex) {
-            var msg = String.format("Configuration has invalid type: %s", ex.getMessage());
+            return Json.mapToObject(map, klass);
+        } catch (Exception ex) {
+            var msg = String.format("Cannot create pattern matcher: %s", ex.getMessage());
             var prefixed = String.format("%s: %s", "StateRequestMatcher", msg);
             notifier().error(prefixed);
             throw new ConfigurationException(prefixed);
         }
     }
 
-    private static <T> T mapToObject(Map<String, Object> map, Class<T> klass) {
+    private static <T> T cast(Object object, Class<T> target) {
         try {
-            return Json.mapToObject(map, klass);
-        } catch (Exception ex) {
-            var msg = String.format("Cannot create pattern matcher: %s", ex.getMessage());
+            //noinspection unchecked
+            return target.cast(object);
+        } catch (ClassCastException ex) {
+            var msg = String.format("Configuration has invalid type: %s", ex.getMessage());
             var prefixed = String.format("%s: %s", "StateRequestMatcher", msg);
             notifier().error(prefixed);
             throw new ConfigurationException(prefixed);
@@ -144,11 +144,11 @@ public class StateRequestMatcher extends RequestMatcherExtension implements Stat
 
     Object renderTemplateRecursively(Object context, Object value) {
         if (value instanceof Collection) {
-            Collection<Object> castedCollection = cast(value);
+            Collection<Object> castedCollection = cast(value, Collection.class);
             return castedCollection.stream().map(it -> renderTemplateRecursively(context, it)).collect(Collectors.toList());
         } else if (value instanceof Map) {
             var newMap = new HashMap<String, Object>();
-            Map<String, Object> castedMap = cast(value);
+            Map<String, Object> castedMap = cast(value, Map.class);
             castedMap.forEach((k, v) -> newMap.put(
                 renderTemplate(context, k),
                 renderTemplateRecursively(context, v)
@@ -162,7 +162,7 @@ public class StateRequestMatcher extends RequestMatcherExtension implements Stat
     private enum ContextMatcher {
 
         property((Context c, Object object) -> {
-            Map<String, Map<String, Object>> mapValue = cast(object);
+            Map<String, Map<String, Object>> mapValue = cast(object, Map.class);
             var results = mapValue.entrySet().stream().map(entry -> {
                 var patterns = mapToObject(entry.getValue(), StringValuePattern.class);
                 var propertyValue = c.getProperties().get(entry.getKey());
@@ -177,7 +177,7 @@ public class StateRequestMatcher extends RequestMatcherExtension implements Stat
         }),
 
         list((Context c, Object object) -> {
-            Map<String, Map<String, Map<String, Object>>> mapValue = cast(object);
+            Map<String, Map<String, Map<String, Object>>> mapValue = cast(object, Map.class);
             var allResults = mapValue.entrySet().stream().map(listIndexEntry -> {
                 Map<String, String> listEntry;
                 switch (listIndexEntry.getKey()) {
@@ -194,7 +194,7 @@ public class StateRequestMatcher extends RequestMatcherExtension implements Stat
                 if (listEntry == null) {
                     return MatchResult.noMatch();
                 } else {
-                    var results = listIndexEntry.getValue().entrySet().stream().map(entry -> {
+                    List<MatchResult> results = listIndexEntry.getValue().entrySet().stream().map(entry -> {
                         var patterns = mapToObject(entry.getValue(), StringValuePattern.class);
                         var propertyValue = listEntry.get(entry.getKey());
                         return patterns.match(propertyValue);
@@ -210,35 +210,35 @@ public class StateRequestMatcher extends RequestMatcherExtension implements Stat
             return MatchResult.aggregate(allResults);
         }),
         hasProperty((Context c, Object object) -> {
-            String stringValue = cast(object);
+            String stringValue = cast(object, String.class);
             return toMatchResult(c.getProperties().containsKey(stringValue));
         }),
         hasNotProperty((Context c, Object object) -> {
-            String stringValue = cast(object);
+            String stringValue = cast(object, String.class);
             return toMatchResult(!c.getProperties().containsKey(stringValue));
         }),
         updateCountEqualTo((Context c, Object object) -> {
-            String stringValue = cast(object);
+            String stringValue = cast(object, String.class);
             return toMatchResult(withConvertedNumber(c, stringValue, (context, value) -> context.getUpdateCount().equals(value)));
         }),
         updateCountLessThan((Context c, Object object) -> {
-            String stringValue = cast(object);
+            String stringValue = cast(object, String.class);
             return toMatchResult(withConvertedNumber(c, stringValue, (context, value) -> context.getUpdateCount() < value));
         }),
         updateCountMoreThan((Context c, Object object) -> {
-            String stringValue = cast(object);
+            String stringValue = cast(object, String.class);
             return toMatchResult(withConvertedNumber(c, stringValue, (context, value) -> context.getUpdateCount() > value));
         }),
         listSizeEqualTo((Context c, Object object) -> {
-            String stringValue = cast(object);
+            String stringValue = cast(object, String.class);
             return toMatchResult(withConvertedNumber(c, stringValue, (context, value) -> context.getList().size() == value));
         }),
         listSizeLessThan((Context c, Object object) -> {
-            String stringValue = cast(object);
+            String stringValue = cast(object, String.class);
             return toMatchResult(withConvertedNumber(c, stringValue, (context, value) -> context.getList().size() < value));
         }),
         listSizeMoreThan((Context c, Object object) -> {
-            String stringValue = cast(object);
+            String stringValue = cast(object, String.class);
             return toMatchResult(withConvertedNumber(c, stringValue, (context, value) -> context.getList().size() > value));
         });
 

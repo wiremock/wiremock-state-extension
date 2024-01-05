@@ -160,6 +160,39 @@ class StateTemplateHelperProviderExtensionTest extends AbstractTestBase {
         }
     }
 
+    @DisplayName("with configuration errors")
+    @Nested
+    public class ConfigurationErrors {
+
+        private final String contextName = "contextName";
+        @DisplayName("fails on missing context")
+        @Test
+        public void test_missingContext_fail() {
+            createContextGetStub(Map.of("contextValue", "{{state context='' property='contextValue'}}"));
+
+            getContext(contextName, (result) -> assertThat(result).containsEntry("contextValue", "[ERROR: 'context' cannot be empty]"));
+        }
+
+
+        @DisplayName("fails when both 'property' and 'list' are set")
+        @Test
+        public void test_propertyAndListSet_fail() {
+            createContextGetStub(Map.of("contextValue", "{{state context='contextName' list='[0].contextValue' property='contextValue'}}"));
+
+            getContext(contextName, (result) -> assertThat(result).containsEntry("contextValue", "[ERROR: Either 'property' or 'list' has to be set]"));
+        }
+
+
+        @DisplayName("fails when neither 'property' nor 'list' is set")
+        @Test
+        public void test_neitherPropertyNorListSet_fail() {
+            createContextGetStub(Map.of("contextValue", "{{state context='contextName'}}"));
+
+            getContext(contextName, (result) -> assertThat(result).containsEntry("contextValue", "[ERROR: Either 'property' or 'list' has to be set]"));
+        }
+    }
+
+
     @DisplayName("with missing context")
     @Nested
     public class MissingContext {
