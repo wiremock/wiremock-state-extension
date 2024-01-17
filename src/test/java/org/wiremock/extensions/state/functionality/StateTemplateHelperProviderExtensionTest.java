@@ -578,6 +578,20 @@ class StateTemplateHelperProviderExtensionTest extends AbstractTestBase {
             getContext(contextName, (result) -> assertThat(result).containsExactlyEntriesOf(request));
         }
 
+
+        @DisplayName("returns body from previous request")
+        @Test
+        void test_returnsBody() {
+            Map<String, Object> request = Map.of("contextValue", "aContextValue", "otherKey", "otherValue");
+            createContextStatePostStub(Map.of("fullBody", "{{{jsonPath request.body '$'}}}"));
+            createContextGetStub("{{{state context=request.pathSegments.[1] property='fullBody' }}}");
+
+            var expectedResult = new HashMap<>(request);
+            expectedResult.put("contextName", contextName);
+            postContext(contextName, request);
+            getContext(contextName, (result) -> assertThat(result).containsExactlyInAnyOrderEntriesOf(expectedResult));
+        }
+
         @DisplayName("with default specified returns property from previous request")
         @Test
         void test_withDefaultReturnsState() {

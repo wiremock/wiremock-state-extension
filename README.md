@@ -410,7 +410,7 @@ Full example for storing a state:
 }
 ```
 
-To record a complete response body, use:
+To record a complete response body, use (**ATTENTION**: tripple `{{{`):
 
 ```json
 {
@@ -422,7 +422,7 @@ To record a complete response body, use:
       "parameters": {
         "context": "{{jsonPath response.body '$.id'}}",
         "state": {
-          "fullBody": "{{jsonPath response.body '$'}}"
+          "fullBody": "{{{jsonPath response.body '$'}}}"
         }
       }
     }
