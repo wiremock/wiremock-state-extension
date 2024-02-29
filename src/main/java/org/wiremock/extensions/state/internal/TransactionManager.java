@@ -19,6 +19,7 @@ import com.github.tomakehurst.wiremock.store.Store;
 import org.wiremock.extensions.state.internal.model.Transaction;
 
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.Consumer;
@@ -59,7 +60,7 @@ public class TransactionManager {
         var transactionKey = createTransactionKey(requestId);
         synchronized (store) {
             @SuppressWarnings("unchecked") var requestTransactions = store.get(transactionKey).map(it -> (Map<String, Transaction>) it).orElse(new HashMap<>());
-            return requestTransactions.keySet();
+            return new HashSet<>(requestTransactions.keySet());
         }
     }
 
