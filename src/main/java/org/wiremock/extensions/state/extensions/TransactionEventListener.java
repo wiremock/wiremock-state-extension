@@ -54,6 +54,5 @@ public class TransactionEventListener implements ServeEventListener, StateExtens
         String requestId = serveEvent.getId().toString();
         var contextNames = transactionManager.getContextNamesByRequestId(requestId);
         contextNames.forEach((contextName) -> transactionManager.deleteTransaction(requestId, contextName));
-
     }
 }
