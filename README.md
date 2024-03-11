@@ -292,14 +292,12 @@ java -cp "wiremock-state-extension-standalone-0.4.0.jar:wiremock-standalone-3.3.
 Using the extension with docker is similar to its usage with usage [standalone](#standalone): it just has to be available on
 the classpath to be loaded automatically - it does not have to be added via `--extensions` .
 
-**Note:** This extension depends on the current WireMock beta development, thus the tag `3x` has to be used:
-
 ```bash
 docker run -it --rm \
 -p 8080:8080 \
 --name wiremock \
 -v $PWD/extensions:/var/wiremock/extensions \
-wiremock/wiremock:3.3.0 \
+wiremock/wiremock  \
 -- --global-response-templating
 ```
 
