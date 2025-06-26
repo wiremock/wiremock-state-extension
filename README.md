@@ -784,6 +784,7 @@ Example:
     "customMatcher": {
       "name": "state-matcher",
       "parameters": {
+        "hasContext": "{{request.pathSegments.[1]}}",
         "property": {
           "myProperty": {
             "contains": "myValue"
