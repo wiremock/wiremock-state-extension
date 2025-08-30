@@ -17,11 +17,9 @@ package org.wiremock.extensions.state.functionality;
 
 import com.github.tomakehurst.wiremock.client.WireMock;
 import com.github.tomakehurst.wiremock.common.Json;
-import com.github.tomakehurst.wiremock.common.Pair;
 import com.github.tomakehurst.wiremock.extension.Parameters;
 import io.restassured.http.ContentType;
 import io.restassured.response.ValidatableResponse;
-import org.apache.commons.lang3.RandomStringUtils;
 import org.apache.http.HttpStatus;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.BeforeEach;
@@ -33,17 +31,18 @@ import org.junit.jupiter.api.TestFactory;
 
 import java.net.URI;
 import java.util.HashMap;
-import java.util.Map;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 import static com.github.tomakehurst.wiremock.client.WireMock.get;
 import static com.github.tomakehurst.wiremock.client.WireMock.post;
 import static com.github.tomakehurst.wiremock.client.WireMock.urlEqualTo;
 import static com.github.tomakehurst.wiremock.client.WireMock.urlPathMatching;
-import static com.github.tomakehurst.wiremock.common.Pair.pair;
 import static io.restassured.RestAssured.given;
+import static org.apache.commons.lang3.RandomStringUtils.randomAlphabetic;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.containsString;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 
 class StateRequestMatcherTest extends AbstractTestBase {
@@ -171,10 +170,57 @@ class StateRequestMatcherTest extends AbstractTestBase {
         return context;
     }
 
+    @DisplayName("with invalid configuration")
+    @Nested
+    public class InvalidConfiguration {
+
+        @DisplayName("no context matcher")
+        @Test
+        void test_empty_config() {
+            createGetStub(Map.of());
+
+            getAndAssertContextMatcher("unknownContext", HttpStatus.SC_INTERNAL_SERVER_ERROR)
+                .body(containsString("state-matcher: You have to specify 'hasContext' or 'hasNotContext'"));
+        }
+
+        @DisplayName("hasContext misses value")
+        @Test
+        void test_hasContext_null() {
+            createGetStub(new HashMap<>() {{
+                put("hasContext", null);
+            }});
+
+            getAndAssertContextMatcher("unknownContext", HttpStatus.SC_INTERNAL_SERVER_ERROR)
+                .body(containsString("state-matcher: You have to specify 'hasContext' or 'hasNotContext'"));
+        }
+
+        @DisplayName("hasNotContext misses value")
+        @Test
+        void test_hasNotContext_null() {
+            createGetStub(new HashMap<>() {{
+                put("hasNotContext", null);
+            }});
+
+            getAndAssertContextMatcher("unknownContext", HttpStatus.SC_INTERNAL_SERVER_ERROR)
+                .body(containsString("state-matcher: You have to specify 'hasContext' or 'hasNotContext'"));
+        }
+
+        @DisplayName("Not content misses value")
+        @Test
+        void test_not_content_null() {
+            createGetStub(Map.of("not", new HashMap<>() {{
+                put("hasNotContext", null);
+            }}));
+
+            getAndAssertContextMatcher("unknownContext", HttpStatus.SC_INTERNAL_SERVER_ERROR)
+                .body(containsString("state-matcher: You have to specify 'hasContext' or 'hasNotContext'"));
+        }
+    }
+
     @DisplayName("with matcher 'hasNotContext'")
     @Nested
     public class HasNotContext {
-        private final String contextValue = RandomStringUtils.randomAlphabetic(5);
+        private final String contextValue = randomAlphabetic(5);
 
         @BeforeEach
         public void setup() {
@@ -205,8 +251,8 @@ class StateRequestMatcherTest extends AbstractTestBase {
 
             @BeforeEach
             public void setup() {
-                postAndAssertContextValue(RandomStringUtils.randomAlphabetic(5));
-                postAndAssertContextValue(RandomStringUtils.randomAlphabetic(5));
+                postAndAssertContextValue(randomAlphabetic(5));
+                postAndAssertContextValue(randomAlphabetic(5));
             }
 
             @DisplayName("succeeds when the context does not exist")
@@ -228,10 +274,136 @@ class StateRequestMatcherTest extends AbstractTestBase {
         }
     }
 
+    @DisplayName("with matcher 'not'")
+    @Nested
+    public class Not {
+        private final String contextValue = randomAlphabetic(5);
+
+        @BeforeEach
+        public void setup() {
+            wm.resetAll();
+            createPostStub();
+        }
+
+        @DisplayName("inverts hasContext")
+        @Test
+        void test_not_hasContext_ok() {
+            createGetStub(Map.of("not", Map.of("hasContext", contextValue)));
+
+            getAndAssertContextMatcher(contextValue, HttpStatus.SC_OK);
+        }
+
+        @DisplayName("fails when 'not' fails")
+        @Test
+        void test_not_hasNoContext_fail() {
+            createGetStub(Map.of("not", Map.of("hasNotContext", contextValue)));
+
+            getAndAssertContextMatcher(contextValue, HttpStatus.SC_NOT_FOUND);
+        }
+
+        @DisplayName("inverts hasNotContext")
+        @Test
+        void test_not_hasNotContext_ok() {
+            var context = postAndAssertContextValue(contextValue);
+            createGetStub(Map.of("not", Map.of("hasNotContext", context)));
+
+            getAndAssertContextMatcher(context, HttpStatus.SC_OK);
+        }
+
+        @DisplayName("can double invert")
+        @Test
+        void test_double_invert_ok() {
+            var context = postAndAssertContextValue(contextValue);
+            createGetStub(Map.of("not", Map.of("not", Map.of("hasContext", context))));
+
+            getAndAssertContextMatcher(context, HttpStatus.SC_OK);
+        }
+    }
+
+    @DisplayName("with matcher 'and'")
+    @Nested
+    public class And {
+        @BeforeEach
+        public void setup() {
+            wm.resetAll();
+            createPostStub();
+        }
+
+        @DisplayName("succeeds when all matchers succeed")
+        @Test
+        void test_twoPositiveMatchers_ok() {
+            var context = postAndAssertContextValue(randomAlphabetic(5));
+
+            createGetStub(Map.of("and", List.of(Map.of("hasContext", context), Map.of("hasNotContext", randomAlphabetic(5)))));
+
+            getAndAssertContextMatcher(context, HttpStatus.SC_OK);
+        }
+
+        @DisplayName("succeeds when nested matchers succeed")
+        @Test
+        void test_nestedMatchers_ok() {
+            var context = postAndAssertContextValue(randomAlphabetic(5));
+
+            createGetStub(Map.of("and", List.of(Map.of("hasContext", context), Map.of("not", Map.of("hasContext", randomAlphabetic(5))))));
+
+            getAndAssertContextMatcher(context, HttpStatus.SC_OK);
+        }
+
+        @DisplayName("fails when one matchers fails")
+        @Test
+        void test_onePositive_oneNegative_fail() {
+            var context = postAndAssertContextValue(randomAlphabetic(5));
+
+            createGetStub(Map.of("and", List.of(Map.of("hasContext", context), Map.of("hasContext", randomAlphabetic(5)))));
+
+            getAndAssertContextMatcher(context, HttpStatus.SC_NOT_FOUND);
+        }
+    }
+
+    @DisplayName("with matcher 'or'")
+    @Nested
+    public class Or {
+        @BeforeEach
+        public void setup() {
+            wm.resetAll();
+            createPostStub();
+        }
+
+        @DisplayName("succeeds when one matcher succeeds")
+        @Test
+        void test_onePositive_oneNegative_ok() {
+            var context = postAndAssertContextValue(randomAlphabetic(5));
+
+            createGetStub(Map.of("or", List.of(Map.of("hasContext", context), Map.of("hasContext", randomAlphabetic(5)))));
+
+            getAndAssertContextMatcher(context, HttpStatus.SC_OK);
+        }
+
+        @DisplayName("succeeds when nested matchers succeed")
+        @Test
+        void test_nestedMatchers_ok() {
+            var context = postAndAssertContextValue(randomAlphabetic(5));
+
+            createGetStub(Map.of("or", List.of(Map.of("hasContext", context), Map.of("not", Map.of("hasNotContext", randomAlphabetic(5))))));
+
+            getAndAssertContextMatcher(context, HttpStatus.SC_OK);
+        }
+
+        @DisplayName("fails when all matchers fail")
+        @Test
+        void test_allNegative_fail() {
+            var context = postAndAssertContextValue(randomAlphabetic(5));
+
+            createGetStub(Map.of("and", List.of(Map.of("hasNotContext", context), Map.of("hasContext", randomAlphabetic(5)))));
+
+            getAndAssertContextMatcher(context, HttpStatus.SC_NOT_FOUND);
+        }
+    }
+
     @DisplayName("with matcher 'hasContext'")
     @Nested
-    public class hasContext {
-        private final String contextValue = RandomStringUtils.randomAlphabetic(5);
+    public class HasContext {
+        private final String contextValue = randomAlphabetic(5);
 
         @BeforeEach
         public void setup() {
@@ -262,8 +434,8 @@ class StateRequestMatcherTest extends AbstractTestBase {
 
             @BeforeEach
             public void setup() {
-                postAndAssertContextValue(RandomStringUtils.randomAlphabetic(5));
-                postAndAssertContextValue(RandomStringUtils.randomAlphabetic(5));
+                postAndAssertContextValue(randomAlphabetic(5));
+                postAndAssertContextValue(randomAlphabetic(5));
             }
 
             @DisplayName("fails when the context does not exist")
@@ -287,7 +459,7 @@ class StateRequestMatcherTest extends AbstractTestBase {
         @DisplayName("with matcher 'hasProperty'")
         @Nested
         public class HasProperty {
-            private final String contextValue = RandomStringUtils.randomAlphabetic(5);
+            private final String contextValue = randomAlphabetic(5);
             private String context;
 
             @BeforeEach
@@ -325,7 +497,7 @@ class StateRequestMatcherTest extends AbstractTestBase {
         @DisplayName("with matcher 'hasNotProperty'")
         @Nested
         public class HasNotProperty {
-            private final String contextValue = RandomStringUtils.randomAlphabetic(5);
+            private final String contextValue = randomAlphabetic(5);
             private String context;
 
             @BeforeEach
@@ -523,7 +695,7 @@ class StateRequestMatcherTest extends AbstractTestBase {
         @DisplayName("with updateCount matchers")
         @Nested
         public class UpdateCount {
-            private final String contextValue = RandomStringUtils.randomAlphabetic(5);
+            private final String contextValue = randomAlphabetic(5);
             private String context;
 
             @BeforeEach
@@ -531,7 +703,7 @@ class StateRequestMatcherTest extends AbstractTestBase {
                 wm.resetAll();
                 createPostStub();
                 context = postAndAssertContextValue(contextValue);
-                postAndAssertContextValue(context, RandomStringUtils.randomAlphabetic(5));
+                postAndAssertContextValue(context, randomAlphabetic(5));
             }
 
             @DisplayName("with matcher 'updateCountEqualTo'")
@@ -626,7 +798,7 @@ class StateRequestMatcherTest extends AbstractTestBase {
         @Nested
         public class ListSize {
 
-            private final String contextValue = RandomStringUtils.randomAlphabetic(5);
+            private final String contextValue = randomAlphabetic(5);
             private String context;
 
             @BeforeEach
@@ -634,7 +806,7 @@ class StateRequestMatcherTest extends AbstractTestBase {
                 wm.resetAll();
                 createPostStub();
                 context = postAndAssertContextValue(contextValue);
-                postAndAssertContextValue(context, RandomStringUtils.randomAlphabetic(5));
+                postAndAssertContextValue(context, randomAlphabetic(5));
             }
 
             @DisplayName("with matcher 'listSizeEqualTo'")

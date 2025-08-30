@@ -13,17 +13,23 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.wiremock.extensions.state.extensions;
+package org.wiremock.extensions.state.extensions.requestmatcher;
 
 import com.github.tomakehurst.wiremock.common.Json;
 import com.github.tomakehurst.wiremock.core.ConfigurationException;
 import com.github.tomakehurst.wiremock.extension.Parameters;
 import com.github.tomakehurst.wiremock.extension.WireMockServices;
-import com.github.tomakehurst.wiremock.extension.responsetemplating.RequestTemplateModel;
 import com.github.tomakehurst.wiremock.http.Request;
 import com.github.tomakehurst.wiremock.matching.MatchResult;
 import com.github.tomakehurst.wiremock.matching.RequestMatcherExtension;
 import com.github.tomakehurst.wiremock.matching.StringValuePattern;
+import org.wiremock.extensions.state.extensions.requestmatcher.model.And;
+import org.wiremock.extensions.state.extensions.requestmatcher.model.BaseContextMatcher;
+import org.wiremock.extensions.state.extensions.requestmatcher.model.BaseRequestMatcher;
+import org.wiremock.extensions.state.extensions.requestmatcher.model.HasContext;
+import org.wiremock.extensions.state.extensions.requestmatcher.model.HasNotContext;
+import org.wiremock.extensions.state.extensions.requestmatcher.model.Not;
+import org.wiremock.extensions.state.extensions.requestmatcher.model.Or;
 import org.wiremock.extensions.state.internal.ContextManager;
 import org.wiremock.extensions.state.internal.StateExtensionMixin;
 import org.wiremock.extensions.state.internal.model.Context;
@@ -34,7 +40,6 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.function.BiFunction;
 import java.util.stream.Collectors;
 
@@ -98,11 +103,55 @@ public class StateRequestMatcher extends RequestMatcherExtension implements Stat
     @Override
     public MatchResult match(Request request, Parameters parameters) {
         var model = wireMockServices.getTemplateEngine().buildModelForRequest(request);
-        return Optional
-            .ofNullable(parameters.getString("hasContext", null))
-            .map(template -> hasContext(model, parameters, template))
-            .or(() -> Optional.ofNullable(parameters.getString("hasNotContext", null)).map(template -> hasNotContext(model, template)))
-            .orElseThrow(() -> createConfigurationError("Parameters should only contain 'hasContext' or 'hasNotContext'"));
+        try {
+            var matcher = Json.mapToObject(parameters, BaseRequestMatcher.class);
+            var validationMessage = matcher.assertValid();
+            if (validationMessage != null) {
+                throw createConfigurationError(validationMessage);
+            }
+            return matchContext(model, parameters, matcher);
+
+        } catch (IllegalArgumentException ex) {
+            throw createConfigurationError("You have to specify 'hasContext' or 'hasNotContext'");
+        }
+    }
+
+    private MatchResult matchContext(Map<String, Object> model, Parameters parameters, BaseRequestMatcher matcher) {
+        if (matcher instanceof BaseContextMatcher) {
+            return matchContext(model, parameters, (BaseContextMatcher) matcher);
+        } else if (matcher instanceof Not) {
+            var matchResult = matchContext(model, parameters, ((Not) matcher).getBaseRequestMatcher());
+            return MatchResult.partialMatch(1.0 - matchResult.getDistance());
+        } else if (matcher instanceof And) {
+            var containedMatcher = ((And) matcher).getBaseRequestMatcher();
+            var matchResults = containedMatcher
+                .stream()
+                .map(it -> matchContext(model, parameters, it))
+                .collect(Collectors.toList());
+            return MatchResult.aggregate(matchResults);
+        } else if (matcher instanceof Or) {
+            var containedMatcher = ((Or) matcher).getBaseRequestMatcher();
+            var matchResults = containedMatcher
+                .stream()
+                .map(it -> matchContext(model, parameters, it))
+                .filter(MatchResult::isExactMatch)
+                .collect(Collectors.toList());
+            return matchResults.stream().findFirst().orElseGet(MatchResult::noMatch);
+        } else {
+            throw createConfigurationError("invalid request matcher configuration");
+        }
+    }
+
+    private MatchResult matchContext(Map<String, Object> model, Parameters parameters, BaseContextMatcher matcher) {
+        var template = matcher.getContextTemplate();
+        if (matcher instanceof HasContext) {
+            return hasContext(model, parameters, template);
+        } else if (matcher instanceof HasNotContext) {
+            return hasNotContext(model, template);
+        } else {
+            throw createConfigurationError("invalid request matcher configuration");
+        }
+
     }
 
     private MatchResult hasContext(Map<String, Object> model, Parameters parameters, String template) {
