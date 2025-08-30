@@ -14,8 +14,8 @@ group 'org.wiremock.extensions'
 project.ext {
     versions = [
             caffeine  : '3.2.2',
-            handlebars  : '4.5.0',
-            wiremock : '3.13.1'
+            handlebars: '4.3.1',
+            wiremock  : '3.13.1'
     ]
 }
 

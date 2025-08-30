@@ -21,7 +21,7 @@ import com.github.tomakehurst.wiremock.extension.WireMockServices;
 import com.github.tomakehurst.wiremock.store.Store;
 import org.wiremock.extensions.state.extensions.DeleteStateEventListener;
 import org.wiremock.extensions.state.extensions.RecordStateEventListener;
-import org.wiremock.extensions.state.extensions.StateRequestMatcher;
+import org.wiremock.extensions.state.extensions.requestmatcher.StateRequestMatcher;
 import org.wiremock.extensions.state.extensions.StateTemplateHelperProviderExtension;
 import org.wiremock.extensions.state.extensions.TransactionEventListener;
 import org.wiremock.extensions.state.internal.ContextManager;

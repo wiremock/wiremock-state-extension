@@ -17,7 +17,6 @@ package org.wiremock.extensions.state.functionality;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.tomakehurst.wiremock.common.ConsoleNotifier;
-import com.github.tomakehurst.wiremock.common.Slf4jNotifier;
 import com.github.tomakehurst.wiremock.junit5.WireMockExtension;
 import io.restassured.RestAssured;
 import org.junit.jupiter.api.BeforeAll;
@@ -49,7 +48,11 @@ public class AbstractTestBase {
     @RegisterExtension
     public static WireMockExtension wm = WireMockExtension.newInstance()
         .options(
-            wireMockConfig().dynamicPort().dynamicHttpsPort().templatingEnabled(true).globalTemplating(true)
+            wireMockConfig()
+                .dynamicPort()
+                .dynamicHttpsPort()
+                .templatingEnabled(true)
+                .globalTemplating(true)
                 .extensions(new StateExtension(store))
                 .notifier(new ConsoleNotifier(true))
         )

@@ -190,13 +190,14 @@ dependencies {
 ### Maven
 
 ```xml
+
 <dependencies>
-  <dependency>
-    <groupId>org.wiremock.extensions</groupId>
-    <artifactId>wiremock-state-extension</artifactId>
-    <version>your-version</version>
-    <scope>test</scope>
-  </dependency>
+    <dependency>
+        <groupId>org.wiremock.extensions</groupId>
+        <artifactId>wiremock-state-extension</artifactId>
+        <version>your-version</version>
+        <scope>test</scope>
+    </dependency>
 </dependencies>
 ```
 
@@ -225,7 +226,7 @@ dependencies {
 ```
 
 </details>
-    
+
 <details>
 <summary>
 Use GitHub Packages in Maven
@@ -590,7 +591,7 @@ An invalid regex results in an exception. If there are no matches, this is silen
 - `context` (string): the context to delete the list entry from
 - `list` (dictionary, see next column)
 
-If `list` is specified and `context` is missing, an error is thrown. 
+If `list` is specified and `context` is missing, an error is thrown.
 </td>
 <td>
 Dictionary - only one option is interpreted (top to bottom as listed here)
@@ -838,7 +839,7 @@ reported or logged.
 
 ### List size match
 
-The list size (which is modified via `recordState` or `deleteState`)  can be used
+The list size (which is modified via `recordState` or `deleteState`) can be used
 for request matching as well. The following matchers are available:
 
 - `listSizeEqualTo`
@@ -874,14 +875,14 @@ The basic syntax:
 
 ```json
 "list": {
-  <index-a>: {
-    <property-a>: <matcher-a>,
-    <property-b>: <matcher-b>
-  },
-  <index-b>: {
-    <property-a>: <matcher-a>,
-    <property-b>: <matcher-b>
-  }
+<index-a>: {
+<property-a>: <matcher-a>,
+<property-b>: <matcher-b>
+},
+<index-b>: {
+<property-a>: <matcher-a>,
+<property-b>: <matcher-b>
+}
 }
 ```
 
@@ -917,7 +918,6 @@ The implementation makes use of WireMock's internal matching system and supports
 `after`,`equalToDateTime`,`anything`,`absent`,`and`,`or`,`matchesPathTemplate`.
 For documentation on using these matchers, check the [WireMock documentation](https://wiremock.org/docs/request-matching/)
 
-
 ### Negative context exists match
 
 ```json
@@ -936,6 +936,120 @@ For documentation on using these matchers, check the [WireMock documentation](ht
     "status": 400
   }
 }
+```
+
+### Logical matches
+
+This extension supports logical matches. The following matchers are available:
+
+- `and`
+- `or`
+- `not`
+
+The matchers can be combined with `hasContext` and `hasNotContext` as well was themselves, so you can create a fully nested structure.
+
+Example for `not`:
+
+```json
+{
+  "request": {
+    "urlPathPattern": "/test/[^\/]+",
+    "method": "GET",
+    "customMatcher": {
+      "name": "state-matcher",
+      "parameters": {
+        "not": {
+          "hasContext": "{{request.pathSegments.[1]}}"
+        }
+      }
+    }
+  },
+  "response": {
+    "status": 400
+  }
+}
+```
+
+Example for `and`:
+
+```json
+{
+  "request": {
+    "urlPathPattern": "/test/[^\/]+",
+    "method": "GET",
+    "customMatcher": {
+      "name": "state-matcher",
+      "parameters": {
+        "and": [
+          {
+            "hasContext": "{{request.pathSegments.[1]}}"
+          },
+          {
+            "hasNotContext": "anotherContext"
+          }
+        ]
+      }
+    }
+  },
+  "response": {
+    "status": 200
+  }
+}
+```
+
+Example for `or`:
+
+```json
+{
+  "request": {
+    "urlPathPattern": "/test/[^\/]+",
+    "method": "GET",
+    "customMatcher": {
+      "name": "state-matcher",
+      "parameters": {
+        "or": [
+          {
+            "hasContext": "{{request.pathSegments.[1]}}"
+          },
+          {
+            "hasContext": "otherContext"
+          }
+        ]
+      }
+    }
+  },
+  "response": {
+    "status": 200
+  }
+}
+```
+
+Example for nesting:
+
+```json
+{
+  "request": {
+    "urlPathPattern": "/test/[^\/]+",
+    "method": "GET",
+    "customMatcher": {
+      "name": "state-matcher",
+      "parameters": {
+        "not": {
+          "or": [
+            {
+              "hasContext": "eitherContext"
+            },
+            {
+              "hasContext": "orContext"
+            }
+          ]
+        }
+      }
+    },
+    "response": {
+      "status": 400
+    }
+  }
 ```
 
 ## Retrieve a state
@@ -1016,13 +1130,50 @@ Example with bodyFileName:
 
 ```json
 [
-  {{# each (state context='list' property='list' default='[]') }}  
   {
-    "id": {{id}},    
-    "firstName": "{{firstName}}",   
-    "lastName": "{{lastName}}"
-  }{{#unless @last}},{{/unless}}
-  {{/each}}
+  {
+    #
+  each
+  (state
+  context=
+  'list'
+  property=
+  'list'
+  default=
+  '[]'
+  )
+  }
+}
+  {
+    "id": {
+  {
+    id
+  }
+},
+  "firstName"
+  :
+  "{{firstName}}",
+  "lastName"
+  :
+  "{{lastName}}"
+  }
+  {
+  {
+    #
+  unless
+  @last
+  }
+},
+  {
+  {
+    /unless
+  }
+}
+  {
+  {
+    /each
+  }
+}
 ]
 ```
 
@@ -1080,11 +1231,13 @@ This extension is at the moment not optimized for distributed setups or high deg
 that should be held into account:
 
 - The store used for storing the state is on instance-level only
-  - while it can be exchanged for a distributed store, any atomicity assurance on instance level is not replicated to the distributed setup. Thus concurrent operations on different instances might result in state overwrites
+    - while it can be exchanged for a distributed store, any atomicity assurance on instance level is not replicated to the distributed setup. Thus concurrent
+      operations on different instances might result in state overwrites
 - Lock-level is basically the whole context store
-  - while the lock time is kept small, this can still impact measurements when being used in load tests
+    - while the lock time is kept small, this can still impact measurements when being used in load tests
 - Single updates to contexts (property additions or changes, list entry additions or deletions) are atomic on instance level
-- Concurrent requests are currently allowed to change the same context. Atomicity prevents overwrites but does not provide something like a transaction, so: the context can change while a request is performed
+- Concurrent requests are currently allowed to change the same context. Atomicity prevents overwrites but does not provide something like a transaction, so: the
+  context can change while a request is performed
 
 For any kind of usage with parallel write requests, it's recommended to use a different context for each parallel stream.
 
