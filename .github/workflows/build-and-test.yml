@@ -12,7 +12,7 @@ jobs:
     steps:
       - uses: actions/checkout@v3
       - name: Validate Gradle wrapper
-        uses: gradle/wrapper-validation-action@v1
+        uses: gradle/actions/wrapper-validation@v4
   build:
     strategy:
       fail-fast: false
