@@ -290,6 +290,30 @@ public class StateRequestMatcher extends RequestMatcherExtension implements Stat
         listSizeMoreThan((Context c, Object object) -> {
             String stringValue = cast(object, String.class);
             return toMatchResult(withConvertedNumber(c, stringValue, (context, value) -> context.getList().size() > value));
+        }),
+        numericComparisons((Context c, Object object) -> {
+            @SuppressWarnings("unchecked") Map<String, Map<String, String>> mapValue = cast(object, Map.class);
+            Map<String, String> properties = c.getProperties();
+            boolean result = mapValue.entrySet().stream()
+                .allMatch(e -> {
+                    String propertyName = e.getKey();
+                    String propertyValueString = properties.get(propertyName);
+                    double actual = castToDouble(propertyValueString);
+                    return e.getValue().entrySet().stream()
+                        .allMatch(me -> {
+                            double expected = castToDouble(me.getValue());
+                            try {
+                                ComparisonOperator operator = ComparisonOperator.fromName(me.getKey());
+                                return operator.compare(actual, expected);
+                            } catch (IllegalArgumentException | IllegalStateException ex) {
+                                String msg = String.format("Cannot compare %s and %s: %s", actual, expected, ex.getMessage());
+                                String prefixed = String.format("%s: %s", "StateRequestMatcher", msg);
+                                notifier().error(prefixed);
+                                throw new ConfigurationException(prefixed);
+                            }
+                        });
+                });
+            return toMatchResult(result);
         });
 
         private final BiFunction<Context, Object, MatchResult> evaluator;
@@ -321,6 +345,17 @@ public class StateRequestMatcher extends RequestMatcherExtension implements Stat
                 return getter.apply(context, longValue);
             } catch (NumberFormatException | IndexOutOfBoundsException ex) {
                 return null;
+            }
+        }
+
+        private static double castToDouble(String stringValue) {
+            try {
+                return Double.parseDouble(stringValue);
+            } catch (NumberFormatException ex) {
+                String msg = String.format("Cannot convert string %s to double: %s", stringValue, ex.getMessage());
+                String prefixed = String.format("%s: %s", "StateRequestMatcher", msg);
+                notifier().error(prefixed);
+                throw new ConfigurationException(prefixed);
             }
         }
 

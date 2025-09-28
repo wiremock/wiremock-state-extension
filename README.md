@@ -1052,6 +1052,113 @@ Example for nesting:
   }
 ```
 
+### Numeric comparisons match
+
+You can perform numeric comparisons on state properties using the `numericComparisons` matcher. This allows you to match requests based on numeric conditions for specific properties in the context.
+
+The following comparison operators are supported:
+
+- `gt` - greater than
+- `gte` - greater than or equal to  
+- `lt` - less than
+- `lte` - less than or equal to
+- `eq` - equal to
+- `ne` - not equal to
+
+Both constant values and state property values (via templating) can be used as comparison values.
+
+**Basic example with constant values:**
+
+```json
+{
+  "request": {
+    "method": "GET",
+    "urlPattern": "/test/[^\/]+",
+    "customMatcher": {
+      "name": "state-matcher",
+      "parameters": {
+        "hasContext": "{{request.pathSegments.[1]}}",
+        "numericComparisons": {
+          "amount": {
+            "gt": "0",
+            "lte": "100"
+          }
+        }
+      }
+    }
+  },
+  "response": {
+    "status": 200
+  }
+}
+```
+
+**Advanced example with state property values:**
+
+```json
+{
+  "request": {
+    "method": "POST",
+    "urlPath": "/transfer",
+    "customMatcher": {
+      "name": "state-matcher",
+      "parameters": {
+        "hasContext": "{{jsonPath request.body '$.id'}}",
+        "numericComparisons": {
+          "amount": {
+            "gt": "500",
+            "lte": "{{state context=(jsonPath request.body '$.id') property='balance'}}"
+          }
+        }
+      }
+    }
+  },
+  "response": {
+    "status": 200
+  }
+}
+```
+
+**Multiple property comparisons:**
+
+```json
+{
+  "request": {
+    "method": "GET",
+    "urlPattern": "/account/[^\/]+",
+    "customMatcher": {
+      "name": "state-matcher",
+      "parameters": {
+        "hasContext": "{{request.pathSegments.[2]}}",
+        "numericComparisons": {
+          "balance": {
+            "gte": "0"
+          },
+          "transactionCount": {
+            "lt": "1000"
+          },
+          "dailyLimit": {
+            "eq": "{{state context=request.pathSegments.[2] property='defaultLimit'}}"
+          }
+        }
+      }
+    }
+  },
+  "response": {
+    "status": 200
+  }
+}
+```
+
+**Notes:**
+
+- All numeric values should be provided as strings (consistent with WireMock's templating system)
+- Templating is fully supported in comparison values
+- Multiple conditions for the same property are combined with AND logic
+- Multiple properties are combined with AND logic
+- If a property doesn't exist or cannot be converted to a number, the match will fail
+- This matcher can be combined with other state matchers like `hasContext`, `hasProperty`, etc.
+
 ## Retrieve a state
 
 A state can be retrieved using a handlebar helper. In the example above, the `StateHelper` is registered by the name `state`.

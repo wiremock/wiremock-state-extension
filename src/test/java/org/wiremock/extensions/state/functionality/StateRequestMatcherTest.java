@@ -28,6 +28,8 @@ import org.junit.jupiter.api.DynamicTest;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestFactory;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 
 import java.net.URI;
 import java.util.HashMap;
@@ -894,6 +896,123 @@ class StateRequestMatcherTest extends AbstractTestBase {
 
                     getAndAssertContextMatcher(context, HttpStatus.SC_NOT_FOUND);
                 }
+            }
+        }
+
+        @DisplayName("with numericComparisons matchers")
+        @Nested
+        public class NumericComparisons {
+
+            private final String contextValue = "1000";
+            private String context;
+
+            @BeforeEach
+            void setup() {
+                createPostStub();
+                context = postAndAssertContextValue(contextValue);
+            }
+
+            @DisplayName("NumericComparisons: interval matching")
+            @ParameterizedTest(name = "[{index}] Expect {4} when {2} {3} < value < {0} {1}")
+            @CsvSource({
+                "lte, 1100, gt,  500, 200",
+                "lte, 1000, gt,  500, 200",
+                "lt,  1000, gte, 500, 404",
+                "lte, 1000, gte, 500, 200",
+                "lt,  1000, gt,  500, 404",
+                "lt,  600,  gt,  500, 404",
+                "gte, 1000, lte, 1000, 200",
+                "gt,  1000, lte, 2000, 404",
+                "gte, 999,  lte, 1000, 200",
+                "gte, 1001, lte, 2000, 404"
+            })
+            void test_intervals(String op1, String val1, String op2, String val2, int status) {
+                createGetStub("numericComparisons", Map.of("stateValue", Map.of(
+                    op1, val1,
+                    op2, val2
+                )));
+
+                getAndAssertContextMatcher(context, status);
+            }
+
+            @DisplayName("NumericComparisons: half-intervals matching (only lower or upper bound)")
+            @ParameterizedTest(name = "[{index}] Expect {2} when {0} {1}")
+            @CsvSource({
+                "gte, 900,  200",
+                "gte, 1000, 200",
+                "gte, 1100, 404",
+                "gt,  900,  200",
+                "gt,  1000, 404",
+                "gt,  1100, 404",
+                "lte, 900,  404",
+                "lte, 1000, 200",
+                "lte, 1100, 200",
+                "lt,  900,  404",
+                "lt,  1000, 404",
+                "lt,  1100, 200"
+            })
+            void test_halfIntervals(String operator, String value, int status) {
+                createGetStub("numericComparisons", Map.of("stateValue", Map.of(
+                    operator, value
+                )));
+
+                getAndAssertContextMatcher(context, status);
+            }
+
+
+            @DisplayName("NumericComparisons: not numeric values handling")
+            @ParameterizedTest(name = "[{index}] Expect {2} when operator {0} with value {1}")
+            @CsvSource({
+                "gt,  null, 500",
+                "gte, null, 500",
+                "lt,  null, 500",
+                "lte, null, 500",
+                "eq,  null, 500",
+                "neq, null, 500",
+            })
+            void test_notNumericValues(String operator, Object value, int status) {
+                createGetStub("numericComparisons", Map.of("stateValue", Map.of(
+                    operator, value
+                )));
+
+                getAndAssertContextMatcher(context, status)
+                    .body(containsString(
+                        String.format("StateRequestMatcher: Cannot convert string %1$s to double: For input string: \"%1$s\"", value)
+                    )
+                );
+            }
+
+            @DisplayName("NumericComparisons: unknown operator handling")
+            @Test
+            void test_unknownOperator() {
+                String unknownOperator = "abc";
+                createGetStub("numericComparisons", Map.of("stateValue", Map.of(
+                    unknownOperator, "1000"
+                )));
+
+                getAndAssertContextMatcher(context, 500)
+                    .body(containsString(
+                            String.format("StateRequestMatcher: Cannot compare 1000.0 and 1000.0: Unknown operator name: %s", unknownOperator)
+                        )
+                    );
+            }
+
+            @DisplayName("NumericComparisons: equal/notEqual operators")
+            @ParameterizedTest
+            @CsvSource({
+                "eq, 1000, 200",
+                "eq, 900,  404",
+                "eq, 1100, 404",
+                "ne, 1000, 404",
+                "ne, 900,  200",
+                "ne, 1100, 200",
+            })
+            void test_equalAndNotEqual(String operator, String value, int status) {
+                createGetStub("numericComparisons", Map.of("stateValue", Map.of(
+                    operator, value
+                )));
+
+                getAndAssertContextMatcher(context, status);
             }
         }
     }
