@@ -50,7 +50,7 @@
     "prettier": "^3.0.0",
     "start-server-and-test": "^2.0.8",
     "typescript": "~5.1.6",
-    "vite": "^4.5.14",
+    "vite": "^7.1.11",
     "vite-plugin-vuetify": "^1.0.0-alpha.11",
     "vitest": "^0.34.2",
     "vue-tsc": "^2.1.10"
