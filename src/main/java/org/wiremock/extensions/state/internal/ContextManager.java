@@ -38,8 +38,10 @@ public class ContextManager {
     }
 
     private static Supplier<Context> createNewContext(String contextName) {
-        logger().info(contextName, "created");
-        return () -> new Context(contextName);
+        return () -> {
+            logger().info(contextName, "created");
+            return new Context(contextName);
+        };
     }
 
     /**
