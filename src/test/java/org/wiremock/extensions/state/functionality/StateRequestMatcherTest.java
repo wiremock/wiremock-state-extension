@@ -358,6 +358,17 @@ class StateRequestMatcherTest extends AbstractTestBase {
 
             getAndAssertContextMatcher(context, HttpStatus.SC_NOT_FOUND);
         }
+
+        @DisplayName("fails when all matcher with nested property matcher fail")
+        @Test
+        void test_allNegative_property_matcher_fail() {
+            var context = postAndAssertContextValue("a context value");
+
+            createGetStub(Map.of("or", List.of(Map.of("hasNotContext", context), Map.of("hasContext", context, "property", Map.of("contextValue", Map.of("equalTo", "another context value"))))));
+
+            getAndAssertContextMatcher(context, HttpStatus.SC_NOT_FOUND);
+        }
+
     }
 
     @DisplayName("with matcher 'or'")
@@ -379,6 +390,16 @@ class StateRequestMatcherTest extends AbstractTestBase {
             getAndAssertContextMatcher(context, HttpStatus.SC_OK);
         }
 
+        @DisplayName("succeeds when one matcher's nested property matcher succeeds")
+        @Test
+        void test_onePositive_oneNegative_property_matcher_ok() {
+            var context = postAndAssertContextValue("a context value");
+
+            createGetStub(Map.of("or", List.of(Map.of("hasContext", context, "property", Map.of("stateValue", Map.of("equalTo", "a context value"))), Map.of("hasContext", randomAlphabetic(5)))));
+
+            getAndAssertContextMatcher(context, HttpStatus.SC_OK);
+        }
+
         @DisplayName("succeeds when nested matchers succeed")
         @Test
         void test_nestedMatchers_ok() {
@@ -394,7 +415,17 @@ class StateRequestMatcherTest extends AbstractTestBase {
         void test_allNegative_fail() {
             var context = postAndAssertContextValue(randomAlphabetic(5));
 
-            createGetStub(Map.of("and", List.of(Map.of("hasNotContext", context), Map.of("hasContext", randomAlphabetic(5)))));
+            createGetStub(Map.of("or", List.of(Map.of("hasNotContext", context), Map.of("hasContext", randomAlphabetic(5)))));
+
+            getAndAssertContextMatcher(context, HttpStatus.SC_NOT_FOUND);
+        }
+
+        @DisplayName("fails when all matcher with nested property matcher fail")
+        @Test
+        void test_allNegative_property_matcher_fail() {
+            var context = postAndAssertContextValue("a context value");
+
+            createGetStub(Map.of("or", List.of(Map.of("hasNotContext", context), Map.of("hasContext", context, "property", Map.of("stateValue", Map.of("equalTo", "another context value"))))));
 
             getAndAssertContextMatcher(context, HttpStatus.SC_NOT_FOUND);
         }
