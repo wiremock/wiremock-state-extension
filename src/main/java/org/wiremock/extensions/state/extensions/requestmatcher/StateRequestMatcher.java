@@ -109,31 +109,31 @@ public class StateRequestMatcher extends RequestMatcherExtension implements Stat
             if (validationMessage != null) {
                 throw createConfigurationError(validationMessage);
             }
-            return matchContext(model, parameters, matcher);
+            return matchContext(model, matcher);
 
         } catch (IllegalArgumentException ex) {
             throw createConfigurationError("You have to specify 'hasContext' or 'hasNotContext'");
         }
     }
 
-    private MatchResult matchContext(Map<String, Object> model, Parameters parameters, BaseRequestMatcher matcher) {
+    private MatchResult matchContext(Map<String, Object> model, BaseRequestMatcher matcher) {
         if (matcher instanceof BaseContextMatcher) {
-            return matchContext(model, parameters, (BaseContextMatcher) matcher);
+            return matchContext(model, (BaseContextMatcher) matcher);
         } else if (matcher instanceof Not) {
-            var matchResult = matchContext(model, parameters, ((Not) matcher).getBaseRequestMatcher());
+            var matchResult = matchContext(model, ((Not) matcher).getBaseRequestMatcher());
             return MatchResult.partialMatch(1.0 - matchResult.getDistance());
         } else if (matcher instanceof And) {
             var containedMatcher = ((And) matcher).getBaseRequestMatcher();
             var matchResults = containedMatcher
                 .stream()
-                .map(it -> matchContext(model, parameters, it))
+                .map(it -> matchContext(model, it))
                 .collect(Collectors.toList());
             return MatchResult.aggregate(matchResults);
         } else if (matcher instanceof Or) {
             var containedMatcher = ((Or) matcher).getBaseRequestMatcher();
             var matchResults = containedMatcher
                 .stream()
-                .map(it -> matchContext(model, parameters, it))
+                .map(it -> matchContext(model, it))
                 .filter(MatchResult::isExactMatch)
                 .collect(Collectors.toList());
             return matchResults.stream().findFirst().orElseGet(MatchResult::noMatch);
@@ -142,10 +142,10 @@ public class StateRequestMatcher extends RequestMatcherExtension implements Stat
         }
     }
 
-    private MatchResult matchContext(Map<String, Object> model, Parameters parameters, BaseContextMatcher matcher) {
+    private MatchResult matchContext(Map<String, Object> model, BaseContextMatcher matcher) {
         var template = matcher.getContextTemplate();
         if (matcher instanceof HasContext) {
-            return hasContext(model, parameters, template);
+            return hasContext(model, matcher.unmappedFields(), template);
         } else if (matcher instanceof HasNotContext) {
             return hasNotContext(model, template);
         } else {
@@ -162,7 +162,7 @@ public class StateRequestMatcher extends RequestMatcherExtension implements Stat
                     logger().info(context, "hasContext matched");
                     return MatchResult.exactMatch();
                 } else {
-                    return calculateMatch(model, context, matchers);
+                     return calculateMatch(model, context, matchers);
                 }
             }).orElseGet(MatchResult::noMatch);
     }
