@@ -57,6 +57,7 @@ public class StateAdminApiExtension implements AdminApiExtension, StateExtension
         router.add(RequestMethod.GET, createPath("contexts"), getContexts());
         router.add(RequestMethod.GET, createPath("contexts/{context}"), getContext());
         router.add(RequestMethod.DELETE, createPath("contexts/{context}"), deleteContext());
+        router.add(RequestMethod.DELETE, createPath("contexts"), deleteContexts());
 
     }
 
@@ -74,6 +75,13 @@ public class StateAdminApiExtension implements AdminApiExtension, StateExtension
     private AdminTask deleteContext() {
         return (admin, serveEvent, pathParams) -> {
             contextManager.deleteContext(UUID.randomUUID().toString(), pathParams.get("context"));
+            return ResponseDefinition.noContent();
+        };
+    }
+
+    private AdminTask deleteContexts() {
+        return (admin, serveEvent, pathParams) -> {
+            contextManager.deleteAllContexts(UUID.randomUUID().toString());
             return ResponseDefinition.noContent();
         };
     }
