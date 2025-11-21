@@ -21,6 +21,7 @@ import com.github.tomakehurst.wiremock.extension.WireMockServices;
 import com.github.tomakehurst.wiremock.store.Store;
 import org.wiremock.extensions.state.extensions.DeleteStateEventListener;
 import org.wiremock.extensions.state.extensions.RecordStateEventListener;
+import org.wiremock.extensions.state.extensions.StateAdminApiExtension;
 import org.wiremock.extensions.state.extensions.requestmatcher.StateRequestMatcher;
 import org.wiremock.extensions.state.extensions.StateTemplateHelperProviderExtension;
 import org.wiremock.extensions.state.extensions.TransactionEventListener;
@@ -64,13 +65,15 @@ public class StateExtension implements ExtensionFactory {
         var deleteStateEventListener = new DeleteStateEventListener(contextManager, services);
         var transactionEventListener = new TransactionEventListener(transactionManager);
         var stateRequestMatcher = new StateRequestMatcher(contextManager, services);
+        var adminApiExtension = new StateAdminApiExtension(contextManager, services);
 
         return List.of(
             recordStateEventListener,
             deleteStateEventListener,
             transactionEventListener,
             stateRequestMatcher,
-            stateTemplateHelperProviderExtension
+            stateTemplateHelperProviderExtension,
+            adminApiExtension
         );
     }
 }

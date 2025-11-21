@@ -19,10 +19,12 @@ import com.github.tomakehurst.wiremock.store.Store;
 import org.wiremock.extensions.state.internal.model.Context;
 
 import java.util.LinkedList;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
+import java.util.stream.Collectors;
 
 import static org.wiremock.extensions.state.internal.ExtensionLogger.logger;
 
@@ -42,6 +44,17 @@ public class ContextManager {
             logger().info(contextName, "created");
             return new Context(contextName);
         };
+    }
+
+    /**
+     *
+     */
+    public List<String> getAllContextNames() {
+        return store
+            .getAllKeys()
+            .filter((it) -> it.startsWith(CONTEXT_KEY_PREFIX))
+            .map((it) -> it.replace(CONTEXT_KEY_PREFIX, ""))
+            .collect(Collectors.toList());
     }
 
     /**

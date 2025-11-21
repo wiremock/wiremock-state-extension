@@ -1243,13 +1243,28 @@ For any kind of usage with parallel write requests, it's recommended to use a di
 
 # Debugging
 
+## Logging and responses
+
 In general, you can increase verbosity, either by [register a notifier](https://wiremock.org/3.x/docs/configuration/#notification-logging)
 and setting `verbose=true` or starting WireMock standalone (or docker) with `verbose=true`.
 
 - EventListeners and Matchers report errors with WireMock-internal exceptions. Additionally, errors are logged.
-  In order to see them, [register a notifier](https://wiremock.org/3.x/docs/configuration/#notification-logging).
+  For to see them, [register a notifier](https://wiremock.org/3.x/docs/configuration/#notification-logging).
 - Response templating errors are printed in the actual response body.
-- Various actions and decisions of this extensions are logged on info level, along with the context they are happening in.
+- Various actions and decisions of this extension are logged on info level, along with the context they are happening in.
+
+## Admin API
+
+The extension provides an admin API endpoint to retrieve the current state of the context store as well as to delete contexts:
+
+| Endpoint                                      | Method | Description                                                                             | Example                                                |
+|-----------------------------------------------|--------|-----------------------------------------------------------------------------------------|--------------------------------------------------------|
+| `/__admin/state-extension/contexts`           | GET    | Retrieves all context names (or an empty list if there are none). Always returns `200`. | `GET http://localhost:8080/__admin/state`              |
+| `/__admin/state-extension/contexts/{context}` | GET    | Retrieve internal structure of a context. Returns `404` if the context does not exist.  | `GET http://localhost:8080/__admin/state/myContext`    |
+| `/__admin/state-extension/contexts`           | DELETE | Deletes all contexts. Always returns `204`.                                             | `DELETE http://localhost:8080/__admin/state`           |
+| `/__admin/state-extension/contexts/{context}` | DELETE | Deletes a single context. Always returns `204`.                                         | `DELETE http://localhost:8080/__admin/state/myContext` |
+
+**Note:** The admin API intentionally does not provide `PUT` or `POST` methods for security and stability reasons.
 
 # Examples
 
