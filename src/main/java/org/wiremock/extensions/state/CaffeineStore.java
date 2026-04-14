@@ -23,6 +23,9 @@ import java.time.Duration;
 import java.util.Optional;
 import java.util.stream.Stream;
 
+import static com.github.tomakehurst.wiremock.common.LocalNotifier.notifier;
+import static org.wiremock.extensions.state.internal.ExtensionLogger.logger;
+
 public class CaffeineStore implements Store<String, Object> {
 
     private static final int DEFAULT_EXPIRATION_SECONDS = 60 * 60;
@@ -35,6 +38,7 @@ public class CaffeineStore implements Store<String, Object> {
 
     public CaffeineStore(int expirationSeconds) {
         var builder = Caffeine.newBuilder();
+        notifier().info(String.format("Using CaffeineStore with expirationSeconds=%d", expirationSeconds));
         if (expirationSeconds == 0) {
             builder.expireAfterWrite(Duration.ofSeconds(DEFAULT_EXPIRATION_SECONDS));
         } else {

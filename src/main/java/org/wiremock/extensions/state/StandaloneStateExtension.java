@@ -25,6 +25,15 @@ package org.wiremock.extensions.state;
 public class StandaloneStateExtension extends StateExtension {
 
     public StandaloneStateExtension() {
-        super(new CaffeineStore());
+        super(new CaffeineStore(getExpiration()));
+    }
+
+    private static int getExpiration() {
+        var expiration = System.getenv("WIREMOCK_STATE_EXTENSION_CONTEXT_EXPIRATION_SEC");
+        try {
+            return Integer.parseInt(expiration);
+        } catch (NumberFormatException e) {
+            return 0;
+        }
     }
 }

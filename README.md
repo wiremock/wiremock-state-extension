@@ -288,7 +288,7 @@ storing any data.
 The standalone jar can be downloaded from [GitHub](https://github.com/wiremock/wiremock-extension-state/packages/1902576) .
 
 ```bash
-java -cp "wiremock-state-extension-standalone-0.4.0.jar:wiremock-standalone-3.3.0.jar" wiremock.Run
+java -cp "wiremock-state-extension-standalone-0.6.0.jar:wiremock-standalone-3.13.2.jar" wiremock.Run
 ```
 
 ### Docker
@@ -707,6 +707,10 @@ The default expiration is 60 minutes. The default value can be overwritten (`0` 
 int expiration = 1024;
 var store = new CaffeineStore(expiration);
 ```
+
+**EXPERIMENTAL/ALPHA**: For the standalone jar, the expiration can also be overwritten by setting the environment variable
+`WIREMOCK_STATE_EXTENSION_CONTEXT_EXPIRATION_SEC` (expiration in seconds).
+This variable or the mechanism is subject to change without further notice as soon as there is a generic way to configure extensions in WireMock.
 
 ## Match a request against a context
 
